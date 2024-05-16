@@ -1,0 +1,22 @@
+from typing import Any, Set, List, Dict, Tuple
+
+# [TO REPLACE] generated_testcases
+
+
+# [TO REPLACE] specification
+
+
+def validate_test_cases(case_in, case_out):
+    try:
+        preconditions(*case_in)
+        postconditions(*case_in, *case_out)
+        return 1
+    except Exception:
+        return 0
+
+
+if __name__ == '__main__':
+    check_results = []
+    for testcase in generated_testcases:
+        check_results.append(validate_test_cases(*testcase))
+    print(check_results)

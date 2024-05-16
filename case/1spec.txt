@@ -1,0 +1,19 @@
+# Preconditions:
+def preconditions(arr):
+    assert isinstance(arr, list), "Input is not a list."
+    assert all([isinstance(i, int) and i >= 0 for i in arr]), "There are elements in input that are not non-negative integers."
+
+
+# Postconditions:
+def postconditions(arr, output):
+    assert isinstance(output, list), "Output is not a list."
+    assert len(output) <= 2, "Output contains more than two elements."
+    if len(output) == 2:
+        assert isinstance(output[0], int) and isinstance(output[1], int), "Elements in output are not integers."
+        assert output[1] < len(arr), "The index in output is out of range."
+        assert output[0] == min([i for i in arr if i % 2 == 0]), "The smallest even value in the output is not correct."
+        assert arr[output[1]] == output[0]
+        assert output[0] not in arr[:output[1]]
+    else:
+        assert len([i for i in arr if i % 2 == 0]) == 0
+        assert output == [], "Output is not empty when there are no even values or the input is empty."

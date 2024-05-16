@@ -1,0 +1,202 @@
+import copy
+import random
+from typing import Any, Set, List, Dict, Tuple
+
+# standard_testcases = [
+#     ([[4, 2, 3]], [[]]),
+#     ([1, 2], [(3.0, 3.0, "hello")]),
+#     ([[2, 22, 222]], [3, [-2, 222]]),
+#     ([31], [{"2": 33, 3.2: [1.4, 33], (1, 2): False}])
+# ]
+
+
+def generate_improper_testcases(case_in, case_out):
+    case_out = copy.copy(case_out)
+    index = random.randint(0, len(case_out) - 1)
+    case_out[index] = randomly_modify_single(case_out[index])
+    return case_in, case_out
+
+
+printable_ch = ['\t', '\r', '\n', *[chr(ch) for ch in range(32, 127)]]
+base_data = [0, 0.0, "", False, None]
+
+
+def unique_length(it):
+    return len(set([str(i) for i in it]))
+
+
+def get_seed_data(it):
+    it = list(it)
+    if len(it) >= 1:
+        return it[random.randint(0, len(it) - 1)]
+    else:
+        return base_data[random.randint(0, len(base_data) - 1)]
+
+
+def randomly_modify_single(var: Any, is_character=False):
+    var = copy.copy(var)
+    if var is None:
+        return 0
+    else:
+        if random.randint(0, int(1 / none_rate) - 1) == 0:
+            return None
+    if isinstance(var, str):
+        if len(var) == 1 and is_character:
+            new_ch_idx = random.randint(0, len(printable_ch) - 2)
+            if new_ch_idx >= printable_ch.index(var):
+                new_ch_idx += 1
+            return printable_ch[new_ch_idx]
+        else:
+            new_str = randomly_modify_single(list(var), True)
+            if new_str is None or None in new_str:
+                return None
+            return ''.join(new_str)
+    if isinstance(var, bool):
+        return not var
+    if isinstance(var, int):
+        candidate = list({var - 1, var + 1, var - 2, var + 2, -var, var * 2, var // 2, 0} - {var})
+        return candidate[random.randint(0, len(candidate) - 1)]
+    if isinstance(var, float):
+        decimal_len = len(str(var).split('.')[1])
+        min_unit = 10 ** -decimal_len
+        candidate = list({var - 1, var + 1, var - 2, var + 2, var + 5 * min_unit, var - 5 * min_unit,
+                          var + min_unit, var - min_unit, round(var, decimal_len - 1),
+                          -var, var * 2, var / 2, 0} - {var})
+        return round(candidate[random.randint(0, len(candidate) - 1)], decimal_len)
+
+    # 增、修改、删、交换
+    if (isinstance(var, list) or isinstance(var, tuple)) and unique_length(var) >= 2:
+        candidate = [1, 1, 1, 1]
+        if isinstance(var, tuple) and len(var) == 2:
+            candidate = [1, 1, 0, 1]
+    elif (not isinstance(var, tuple) and len(var) >= 1) or (isinstance(var, tuple) and len(var) not in [0, 2]):
+        candidate = [1, 1, 1, 0]
+    elif len(var) >= 1:
+        candidate = [1, 1, 0, 0]
+    else:
+        candidate = [1, 0, 0, 0]
+
+    index = random.randint(0, sum(candidate) - 1)
+    operation = 0
+    for op, sign in enumerate(candidate):
+        if sign == 1:
+            if index == 0:
+                operation = op
+                break
+            index -= 1
+
+    empty = random.randint(0, int(1 / empty_rate) - 1) == 0 and len(var) > 0
+
+    if isinstance(var, list) or isinstance(var, tuple):
+        origin_type = type(var)
+        if isinstance(var, tuple):
+            var = list(var)
+        if empty:
+            var = []
+        elif operation == 0:
+            for _ in range(2 if origin_type == tuple and len(var) == 0 else 1):
+                if is_character:
+                    seed_data = " "
+                else:
+                    seed_data = get_seed_data(var)
+                insert_index = random.randint(0, len(var))
+                var.insert(insert_index, randomly_modify_single(seed_data, is_character))
+        elif operation == 1:
+            update_index = random.randint(0, len(var) - 1)
+            var[update_index] = randomly_modify_single(var[update_index], is_character)
+        elif operation == 2:
+            del var[random.randint(0, len(var) - 1)]
+        else:
+            unique_set_str = list(set([str(item) for item in var]))
+            swap_indexes = random.sample(range(len(unique_set_str)), 2)
+            for i, index in enumerate(swap_indexes):
+                for j, item in enumerate(var):
+                    if str(item) == unique_set_str[index]:
+                        swap_indexes[i] = j
+                        break
+            assert str(var[swap_indexes[0]]) != str(var[swap_indexes[1]])
+            var[swap_indexes[0]], var[swap_indexes[1]] = var[swap_indexes[1]], var[swap_indexes[0]]
+        if origin_type == tuple:
+            var = tuple(var)
+        return var
+    if isinstance(var, set):
+        if empty:
+            var = {}
+        elif operation == 0:
+            length = len(var)
+            while len(var) == length:
+                seed_data = get_seed_data(var)
+                var.add(randomly_modify_single(seed_data))
+        elif operation == 1:
+            lst = list(var)
+            update_index = random.randint(0, len(lst) - 1)
+            lst[update_index] = randomly_modify_single(lst[update_index])
+            var = set(lst)
+        else:
+            lst = list(var)
+            var.remove(lst[random.randint(0, len(lst) - 1)])
+        return var
+    if isinstance(var, dict):
+        if empty:
+            var = dict()
+        elif operation == 0:
+            while True:
+                key_seed_data = get_seed_data(var.keys())
+                value_seed_data = get_seed_data(var.values())
+                new_key = randomly_modify_single(key_seed_data)
+                if new_key in var:
+                    continue
+                var[new_key] = randomly_modify_single(value_seed_data)
+                break
+        elif operation == 1:
+            lst = list(var.items())
+            update_index = random.randint(0, len(lst) - 1)
+            var[lst[update_index][0]] = randomly_modify_single(lst[update_index][1])
+        else:
+            lst = list(var.keys())
+            del var[lst[random.randint(0, len(lst) - 1)]]
+        return var
+    else:
+        raise NotImplementedError()
+
+
+# [TO REPLACE] standard_testcases
+
+
+# [TO REPLACE] specification
+
+
+def validate_test_cases(case_in, case_out):
+    try:
+        preconditions(*case_in)
+        postconditions(*case_in, *case_out)
+        return 1, ""
+    except Exception as e:
+        return 0, f"{e}"
+
+
+if __name__ == '__main__':
+    generate_num_per_testcase = 10000
+    none_rate = 0.02
+    empty_rate = 0.1
+
+    pass_num_proper = 0
+    pass_num_improper = 0
+    proper_testcase_error_message = []
+    improper_testcase_pass_spec = []
+    for testcase in standard_testcases:
+        result, message = validate_test_cases(*testcase)
+        if result == 0:
+            proper_testcase_error_message.append((*testcase, message))
+        pass_num_proper += result
+        for _ in range(generate_num_per_testcase):
+            improper_testcase = generate_improper_testcases(*testcase)
+            result, _ = validate_test_cases(*improper_testcase)
+            if result == 1:
+                improper_testcase_pass_spec.append(improper_testcase)
+            pass_num_improper += result
+    print([pass_num_proper / len(standard_testcases),
+           1 - pass_num_improper / (generate_num_per_testcase * len(standard_testcases)),
+           proper_testcase_error_message,
+           random.sample(improper_testcase_pass_spec, min(5, len(improper_testcase_pass_spec)))
+          if len(improper_testcase_pass_spec) > 0 else []])

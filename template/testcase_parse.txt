@@ -1,0 +1,8 @@
+# [TO REPLACE] generated_testcases
+
+if __name__ == '__main__':
+    after_filtered = []
+    for test_case in test_cases:
+        if len(str(test_case)) <= 1000:
+            after_filtered.append(test_case)
+    print(after_filtered)

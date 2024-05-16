@@ -1,0 +1,7 @@
+.gitignore
+.idea
+PAR-TOSEM
+template/*.py
+*/read_file.py
+reference
+config.json
