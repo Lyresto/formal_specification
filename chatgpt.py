@@ -1,3 +1,4 @@
+import copy
 import json
 import os.path
 import smtplib
@@ -24,19 +25,20 @@ class Conversation:
         self.model = model
 
     def chat(self, prompt, reserved=None):
-        msg = self.messages
+        msg = copy.copy(self.messages)
         if reserved is not None:
             msg = []
             for idx in reserved:
                 msg.append(self.messages[idx])
         self.messages.append({"role": "user", "content": prompt})
+        msg.append(self.messages[-1])
         resp = call_gpt(msg, self.temp, self.model)
         self.messages.append({"role": "assistant", "content": resp})
         if len(self.messages) > 20:
             self.messages = self.messages[1:]
         if self.save_path is not None:
-            with open(self.save_path, 'wb') as f:
-                pkl.dump(self, f)
+            with open(self.save_path, 'wb') as __f:
+                pkl.dump(self, __f)
         return resp
 
 
