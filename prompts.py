@@ -1,3 +1,6 @@
+import copy
+
+
 def testcase_prompt(problem, example_testcase):
     return f"""Given a question, you need to write several sets of test cases for checking the correctness of the code implementation about the functionality of the given question. Please do not duplicate the Example IO given in the question. You are required to generate at least 10 sets of test cases that comprehensively validate the implementation's functionality under various conditions, including but not limited to boundary test cases, functional correctness test cases, etc. The elements in each test case can only consist of two parts named 'caseIn' and 'caseOut'. Please also annotate each test case with detailed comments. Again, all you need to do and you can do is to return me only an array called test_cases consisting of caseIn and caseOut two parts.
 Here is an example: 
@@ -19,7 +22,7 @@ test_cases = [
     
 Each tuple in `test_cases` contains two parts: case_in and case_out, both of which are lists. Each element in the list corresponds to a parameter/return value of the function. For example, the first example IO in the problem description can be represented as: ([[3, 1, 2, 4, 5]], [3])
 
-Now, please provide the test cases for the following problem. Please do not duplicate the Example I0 given in the question.
+Now, please provide the test cases for the following problem. Please do not duplicate the Example I0 given in the problem description.
 
 # Problem:
 {problem}
@@ -73,24 +76,36 @@ Now, please provide the specifications for the following problem. Your output sh
 
 
 def specification_modify_prompt_for_proper_testcase(param_names, testcase_info):
+    testcase_info = copy.copy(testcase_info)
     prompt = "I have tested your specification using some correct testcases to ensure its completeness. If your specification is complete, there should be no errors reported. Please modify your specification according to the following messages:"
-    for case_in, case_out, msg in testcase_info:
+    for case_in, case_out, msg in testcase_info[:2]:
         msg_item = "\nwhen "
         for params_name, param_value in zip(param_names, case_in):
+            if isinstance(param_value, str):
+                param_value = f"\"{params_name}\""
             msg_item += f"{params_name} = {param_value}, "
+        if isinstance(case_out[0], str):
+            case_out[0] = f"\"{case_out[0]}\""
         msg_item += f"output = {case_out[0]}, the specification erroneously reports: {msg}"
         prompt += msg_item
+    prompt += "\nPlease provide the revised specification directly."
     return prompt
 
 
 def specification_modify_prompt_for_improper_testcase(param_names, testcase_info):
+    testcase_info = copy.copy(testcase_info)
     prompt = "I have tested your specification using some wrong cases to ensure its soundness. If your specification is sound, there should be some errors reported. Please modify your specification according to the following messages:"
-    for case_in, case_out in testcase_info:
+    for case_in, case_out in testcase_info[:2]:
         msg_item = "\nwhen "
         for params_name, param_value in zip(param_names, case_in):
+            if isinstance(param_value, str):
+                param_value = f"\"{params_name}\""
             msg_item += f"{params_name} = {param_value}, "
+        if isinstance(case_out[0], str):
+            case_out[0] = f"\"{case_out[0]}\""
         msg_item += f"output = {case_out[0]}, this case erroneously passed the specification"
         prompt += msg_item
+    prompt += "\nPlease provide the revised specification directly."
     return prompt
 
 

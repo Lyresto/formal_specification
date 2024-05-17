@@ -39,7 +39,7 @@ def remove_duplicate_testcase(__testcases):
 
 
 def calculate_score_for_specification(__specifications):
-    alpha = 0.9
+    alpha = 0.6
     score_for_standard_testcase = []
     score_for_improper_testcase = []
     for _, __check_result in __specifications:
@@ -82,24 +82,34 @@ def choose_specification_and_testcase(__specifications, __testcases):
 
 
 for idx, item in enumerate(data):
-    standard_testcase = [
-        ([[4, 2, 3]], [[2, 1]]),
-        ([[1, 2, 3]], [[2, 1]]),
-        ([[]], [[]]),
-        ([[5, 0, 3, 0, 4, 2]], [[0, 1]])
-    ]
+    if idx < 4:
+        continue
+    # standard_testcase = [
+    #     ([[4, 2, 3]], [[2, 1]]),
+    #     ([[1, 2, 3]], [[2, 1]]),
+    #     ([[]], [[]]),
+    #     ([[5, 0, 3, 0, 4, 2]], [[0, 1]])
+    # ]
+    # standard_testcase = [(["Example"], ["Example"]), (["Example 1"], ["Example_1"]), ([" Example 2"], ["_Example_2"]),
+    #                      ([" Example   3"], ["_Example-3"])]
+    standard_testcase = [([[[0,0,1,0], [0,1,0,0], [1,1,1,1]], 1], [6]),
+                         ([[[0,0,1,1], [0,0,0,0], [1,1,1,1], [0,1,1,1]], 2], [5]),
+                         ([[[0,0,0], [0,0,0]], 5], [0])]
     prompt = item["prompt"]
     entrypoint = item["entry_point"]
     multi_param, multi_return, params = check_func_param_and_return(prompt, entrypoint)
 
-    # conversation = start_conversation(save_path=f'conversation/testcase/{idx}.pkl')
-    # # print(testcase_prompt(item["prompt"]))
-    # raw_testcase = conversation.chat(testcase_prompt(item["prompt"], standard_testcase[0]))
+    conversation = start_conversation(save_path=f'conversation/testcase/{idx}.pkl', load_if_exist=True)
+    if len(conversation.messages) > 0:
+        raw_testcase = conversation.messages[-1]["content"]
+    else:
+        raw_testcase = conversation.chat(testcase_prompt(item["prompt"], standard_testcase[0]))
     # print(raw_testcase)
+    generated_testcase = remove_duplicate_testcase(parse_testcase(raw_testcase))
     # exit(-1)
-    with open('case/1testcase.txt') as f:
-        generated_testcase = parse_testcase(f.read())
-    generated_testcase = remove_duplicate_testcase(generated_testcase)
+    # with open('case/1testcase.txt') as f:
+    #     generated_testcase = parse_testcase(f.read())
+    # generated_testcase = remove_duplicate_testcase(generated_testcase)
 
     # with open('case/10spec.json') as f:
     #     specifications = json.load(f)
@@ -110,6 +120,7 @@ for idx, item in enumerate(data):
     # exit(-1)
     specifications = []
     refine_threshold = 3
+    break_threshold = 3
     max_amount = 10
     for turn in range(2):
         specification_count = 0
@@ -117,12 +128,13 @@ for idx, item in enumerate(data):
         standard_testcase_not_pass_count = []
         refine = False
         if turn == 1:
-            print("refine!!")
+            print("Refine!!")
         while specification_count < max_amount:
             conversation = start_conversation(
                 save_path=f'conversation/specification/{idx}-{turn}-{conversation_count}.pkl',
                 load_if_exist=True
             )
+            specification_metric_within_conversation = []
             if len(conversation.messages) > 0:
                 for j in range(1, len(conversation.messages) - 1, 2):
                     specification = extract_specification(conversation.messages[j]["content"])
@@ -131,16 +143,19 @@ for idx, item in enumerate(data):
                     print(check_result)
                     specification_count += 1
                     standard_testcase_not_pass_count.append(int(check_result[0] != 1.0))
+                    specification_metric_within_conversation.append(str(check_result[:2]))
                 specification = conversation.messages[-1]["content"]
             else:
                 refined_description = ""
                 if turn == 1:
-                    refine_conversation = start_conversation(save_path=f'conversation/refine/{idx}.pkl', load_if_exist=True)
+                    refine_conversation = start_conversation(save_path=f'conversation/refine/{idx}.pkl',
+                                                             load_if_exist=True)
                     if len(refine_conversation.messages) > 0:
                         refined_description = refine_conversation.messages[-1]["content"]
                     else:
                         refined_description = refine_conversation.chat(requirement_refine_prompt(prompt))
                 specification = conversation.chat(specification_prompt(prompt, refined_description))
+
             while True:
                 specification = extract_specification(specification)
                 check_result = check_specification(standard_testcase, specification)
@@ -148,11 +163,16 @@ for idx, item in enumerate(data):
                 print(check_result)
                 specification_count += 1
                 standard_testcase_not_pass_count.append(int(check_result[0] != 1.0))
+                specification_metric_within_conversation.append(str(check_result[:2]))
                 if check_result[:2] == [1.0, 1.0] or specification_count == max_amount:
                     break
                 if sum(standard_testcase_not_pass_count) >= refine_threshold and \
                         0 not in standard_testcase_not_pass_count[:refine_threshold] and turn == 0:
                     refine = True
+                    break
+                if len(specification_metric_within_conversation) >= break_threshold and \
+                        len(set(specification_metric_within_conversation[-3:])) == 1:
+                    print(f"{break_threshold} continuously same specifications!")
                     break
                 if check_result[0] != 1.0:
                     specification = conversation.chat(
@@ -176,7 +196,7 @@ for idx, item in enumerate(data):
             break
 
     final_specification, filtered_testcases = choose_specification_and_testcase(specifications, generated_testcase)
-    print(len(filtered_testcases))
+    print(filtered_testcases)
 
     # with open('case/10spec.json', 'w+') as f:
     #     json.dump(specifications, f)
