@@ -66,9 +66,13 @@ def call_gpt(message, temp=0.8, model='gpt-3.5-turbo-0613'):
 
 
 def start_conversation(system_msg='', save_path=None, load_if_exist=False):
+    if load_if_exist and save_path is not None:
+        save_dir = '/'.join(save_path.split('/')[:-1])
+        if not os.path.exists(save_dir):
+            os.makedirs(save_dir)
     if load_if_exist and save_path is not None and os.path.exists(save_path):
-        with open(save_path, 'rb') as f:
-            conversation = pkl.load(f)
+        with open(save_path, 'rb') as __f:
+            conversation = pkl.load(__f)
         if len(conversation.messages) > 0 and conversation.messages[-1]["role"] == "user":
             conversation.messages = conversation.messages[:-1]
     else:
