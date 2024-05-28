@@ -1,5 +1,6 @@
 import copy
 import random
+import re
 from typing import Any, Set, List, Dict, Tuple
 import math
 
@@ -11,10 +12,21 @@ import math
 # ]
 
 
+def get_step_num():
+    choose_num = random.randint(0, 2 ** max_step - 2)
+    for choose_step in range(max_step, 0, -1):
+        if choose_num <= (2 ** (max_step - choose_step) - 1) * 2:
+            return choose_step
+
+
 def generate_improper_testcases(case_in, case_out):
+    case_in = copy.copy(case_in)
     case_out = copy.copy(case_out)
-    index = random.randint(0, len(case_out) - 1)
-    case_out[index] = randomly_modify_single(case_out[index])
+    while (case_in, case_out) in standard_testcases:
+        for __i in range(len(case_in)):
+            case_in[__i] = randomly_modify_single(case_in[__i], steps=get_step_num())
+        for __i in range(len(case_out)):
+            case_out[__i] = randomly_modify_single(case_out[__i], steps=get_step_num())
     return case_in, case_out
 
 
@@ -34,8 +46,12 @@ def get_seed_data(it):
         return base_data[random.randint(0, len(base_data) - 1)]
 
 
-def randomly_modify_single(var: Any, is_character=False):
+def randomly_modify_single(var: Any, is_character=False, steps=1):
     var = copy.copy(var)
+    if steps > 1:
+        var = randomly_modify_single(var, steps=steps - 1)
+    if random.randint(0, int(1 / keep_rate) - 1) == 0:
+        return var
     if var is None:
         return 0
     else:
@@ -180,11 +196,15 @@ if __name__ == '__main__':
     generate_num_per_testcase = 10000
     none_rate = 0.02
     empty_rate = 0.1
+    keep_rate = 0.2
+    max_step = 4
 
     pass_num_proper = 0
     pass_num_improper = 0
     proper_testcase_error_message = []
     improper_testcase_pass_spec = []
+    case_out_set = set()
+    different_case_in_cnt = 0
     for testcase in standard_testcases:
         result, message = validate_test_cases(*testcase)
         if result == 0:
@@ -192,12 +212,17 @@ if __name__ == '__main__':
         pass_num_proper += result
         for _ in range(generate_num_per_testcase):
             improper_testcase = generate_improper_testcases(*testcase)
+            if improper_testcase[0] != testcase[0]:
+                different_case_in_cnt += 1
+            case_out_set.add(str(improper_testcase[1]))
             result, _ = validate_test_cases(*improper_testcase)
-            if result == 1:
+            if result == 1 and improper_testcase not in improper_testcase_pass_spec:
                 improper_testcase_pass_spec.append(improper_testcase)
             pass_num_improper += result
+    collision_rate = different_case_in_cnt / (generate_num_per_testcase * len(standard_testcases)) / len(case_out_set)
+    random_testcase_pass_rate = 1 - pass_num_improper / (generate_num_per_testcase * len(standard_testcases))
     print([pass_num_proper / len(standard_testcases),
-           1 - pass_num_improper / (generate_num_per_testcase * len(standard_testcases)),
+           min(1.0, random_testcase_pass_rate + 3 * collision_rate),
            proper_testcase_error_message,
            random.sample(improper_testcase_pass_spec, min(5, len(improper_testcase_pass_spec)))
           if len(improper_testcase_pass_spec) > 0 else []])

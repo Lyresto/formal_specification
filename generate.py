@@ -1,30 +1,8 @@
-import os
-import subprocess
+import json
 
 from chatgpt import *
 from parse import *
 from prompts import *
-
-source_data_path = 'one_data.jsonl'
-
-data = []
-with open(source_data_path) as f:
-    for line in f:
-        data.append(json.loads(line))
-
-
-def check_specification(__testcases, __specification):
-    try:
-        return run_template(__testcases, __specification, "standard", "specification_check")
-    except RuntimeError:
-        return 0.0, 0.0, [], []
-
-
-def check_generated_testcase(__testcases, __specification):
-    try:
-        return run_template(__testcases, __specification, "generated", "generated_testcase_check")
-    except RuntimeError:
-        return [0] * len(__testcases)
 
 
 def remove_duplicate_testcase(__testcases):
@@ -77,40 +55,11 @@ def choose_specification_and_testcase(__specifications, __testcases):
     print(dual_scores)
     max_index = dual_scores.index(max(dual_scores))
     print(max_index)
-    return __specifications[max_index], \
+    return __specifications[max_index][0], \
         [__tc for __i, __tc in enumerate(__testcases) if __check_results[max_index][__i] == 1]
 
 
-for idx, item in enumerate(data):
-    if idx < 4:
-        continue
-    # standard_testcase = [
-    #     ([[4, 2, 3]], [[2, 1]]),
-    #     ([[1, 2, 3]], [[2, 1]]),
-    #     ([[]], [[]]),
-    #     ([[5, 0, 3, 0, 4, 2]], [[0, 1]])
-    # ]
-    # standard_testcase = [(["Example"], ["Example"]), (["Example 1"], ["Example_1"]), ([" Example 2"], ["_Example_2"]),
-    #                      ([" Example   3"], ["_Example-3"])]
-    standard_testcase = [([[[0,0,1,0], [0,1,0,0], [1,1,1,1]], 1], [6]),
-                         ([[[0,0,1,1], [0,0,0,0], [1,1,1,1], [0,1,1,1]], 2], [5]),
-                         ([[[0,0,0], [0,0,0]], 5], [0])]
-    prompt = item["prompt"]
-    entrypoint = item["entry_point"]
-    multi_param, multi_return, params = check_func_param_and_return(prompt, entrypoint)
-
-    conversation = start_conversation(save_path=f'conversation/testcase/{idx}.pkl', load_if_exist=True)
-    if len(conversation.messages) > 0:
-        raw_testcase = conversation.messages[-1]["content"]
-    else:
-        raw_testcase = conversation.chat(testcase_prompt(item["prompt"], standard_testcase[0]))
-    # print(raw_testcase)
-    generated_testcase = remove_duplicate_testcase(parse_testcase(raw_testcase))
-    # exit(-1)
-    # with open('case/1testcase.txt') as f:
-    #     generated_testcase = parse_testcase(f.read())
-    # generated_testcase = remove_duplicate_testcase(generated_testcase)
-
+def get_specifications(idx, prompt, standard_testcase, params):
     # with open('case/10spec.json') as f:
     #     specifications = json.load(f)
     # for specification in specifications:
@@ -121,7 +70,7 @@ for idx, item in enumerate(data):
     specifications = []
     refine_threshold = 3
     break_threshold = 3
-    max_amount = 10
+    max_specification = 10
     for turn in range(2):
         specification_count = 0
         conversation_count = 0
@@ -129,7 +78,7 @@ for idx, item in enumerate(data):
         refine = False
         if turn == 1:
             print("Refine!!")
-        while specification_count < max_amount:
+        while specification_count < max_specification:
             conversation = start_conversation(
                 save_path=f'conversation/specification/{idx}-{turn}-{conversation_count}.pkl',
                 load_if_exist=True
@@ -164,7 +113,7 @@ for idx, item in enumerate(data):
                 specification_count += 1
                 standard_testcase_not_pass_count.append(int(check_result[0] != 1.0))
                 specification_metric_within_conversation.append(str(check_result[:2]))
-                if check_result[:2] == [1.0, 1.0] or specification_count == max_amount:
+                if check_result[:2] == [1.0, 1.0] or specification_count >= max_specification:
                     break
                 if sum(standard_testcase_not_pass_count) >= refine_threshold and \
                         0 not in standard_testcase_not_pass_count[:refine_threshold] and turn == 0:
@@ -194,9 +143,100 @@ for idx, item in enumerate(data):
             specifications = []
         else:
             break
+    return specifications
 
-    final_specification, filtered_testcases = choose_specification_and_testcase(specifications, generated_testcase)
-    print(filtered_testcases)
 
-    # with open('case/10spec.json', 'w+') as f:
-    #     json.dump(specifications, f)
+def get_generated_testcase(idx, prompt, standard_testcase):
+    conversation = start_conversation(save_path=f'conversation/testcase/{idx}.pkl', load_if_exist=True)
+    if len(conversation.messages) > 0:
+        raw_testcase = conversation.messages[-1]["content"]
+    else:
+        raw_testcase = conversation.chat(testcase_prompt(prompt, standard_testcase[0]))
+    # print(raw_testcase)
+    generated_testcase = remove_duplicate_testcase(parse_testcase(raw_testcase))
+    # exit(-1)
+    # with open('case/1testcase.txt') as f:
+    #     generated_testcase = parse_testcase(f.read())
+    # generated_testcase = remove_duplicate_testcase(generated_testcase)
+    return generated_testcase
+
+
+def get_solution(idx, prompt, entrypoint, specification, generate_testcases, params):
+    max_generation = 10
+    codes = []
+    conversation = start_conversation(
+        save_path=f'conversation/code/{idx}.pkl', load_if_exist=True
+    )
+    count = 0
+    if len(conversation.messages) > 0:
+        for i in range(1, len(conversation.messages) - 1, 2):
+            code = conversation.messages[i]["content"]
+            solution = assemble_solution(prompt, code, entrypoint)
+            judge_result = judge_code(generate_testcases, specification, solution)
+            print(judge_result)
+            codes.append((code, 1 - len(judge_result) / len(generate_testcases)))
+            count += 1
+        code = conversation.messages[-1]["content"]
+    else:
+        code = conversation.chat(prompt)
+    while True:
+        solution = assemble_solution(prompt, code, entrypoint)
+        judge_result = judge_code(generate_testcases, specification, solution)
+        print(judge_result)
+        codes.append((code, 1 - len(judge_result) / len(generate_testcases)))
+        count += 1
+        if count == max_generation or codes[-1][1] == 1.0:
+            break
+        code = conversation.chat(code_prompt_for_iteration(params, judge_result), [0, -1])
+    best_code = max(codes, key=lambda x: x[1])
+    return best_code
+
+
+def main():
+    for idx, item in enumerate(data):
+        if idx != 2:
+            continue
+        # standard_testcase = [
+        #     ([[4, 2, 3]], [[2, 1]]),
+        #     ([[1, 2, 3]], [[2, 1]]),
+        #     ([[]], [[]]),
+        #     ([[5, 0, 3, 0, 4, 2]], [[0, 1]])
+        # ]
+        standard_testcase = [
+            ([3], [[3, 5, 7]]),
+            ([2], [[2, 4]])
+        ]
+        # standard_testcase = [(["Example"], ["Example"]), (["Example 1"], ["Example_1"]),
+        #                      ([" Example 2"], ["_Example_2"]),
+        #                      ([" Example   3"], ["_Example-3"])]
+        # standard_testcase = [([[[0,0,1,0], [0,1,0,0], [1,1,1,1]], 1], [6]),
+        #                      ([[[0,0,1,1], [0,0,0,0], [1,1,1,1], [0,1,1,1]], 2], [5]),
+        #                      ([[[0,0,0], [0,0,0]], 5], [0])]
+        prompt = item["prompt"]
+        entrypoint = item["entry_point"]
+        task_id = item["task_id"]
+        multi_param, multi_return, params = check_func_param_and_return(prompt, entrypoint)
+
+        generated_testcase = get_generated_testcase(idx, prompt, standard_testcase)
+        specifications = get_specifications(idx, prompt, standard_testcase, params)
+
+        final_specification, filtered_testcases = choose_specification_and_testcase(specifications, generated_testcase)
+        print(filtered_testcases)
+
+        best_code, pass_rate = get_solution(idx, prompt, entrypoint, final_specification, filtered_testcases, params)
+        print(best_code, '\n', pass_rate)
+
+        result_file.write(f'{json.dumps({"task_id": task_id, "completion": best_code})}\n')
+
+
+if __name__ == '__main__':
+    source_data_path = 'data/humaneval.jsonl'
+    result_path = f'result/{source_data_path.split("/")[1]}'
+
+    with open(source_data_path) as f:
+        data = []
+        for line in f:
+            data.append(json.loads(line))
+    result_file = open(result_path, 'a')
+    main()
+    result_file.close()

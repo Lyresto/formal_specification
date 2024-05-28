@@ -19,5 +19,8 @@ def validate_test_cases(case_in, case_out):
 if __name__ == '__main__':
     check_results = []
     for testcase in generated_testcases:
-        check_results.append(validate_test_cases(*testcase))
+        try:
+            check_results.append(validate_test_cases(*testcase))
+        except Exception:
+            check_results.append(0)
     print(check_results)
