@@ -3,7 +3,7 @@
 > 目前仅可用于HumanEval风格的数据
 
 - case：一些调试用实例（均针对pluck问题生成）
-- conversation：chatgpt的对话记录文件（文件夹都为空）
+- conversation：chatgpt的对话记录文件（运行时生成）
     - code：生成和优化代码时的对话
     - refine：生成细化需求时的对话
     - specification：生成规约时的对话
