@@ -1,0 +1,29 @@
+from typing import Any, Set, List, Dict, Tuple
+import math
+
+# [TO REPLACE] filtered_testcases
+
+
+# [TO REPLACE] specification
+
+
+# [TO REPLACE] solution
+
+
+def validate_test_cases(case_in, case_out):
+    try:
+        preconditions(*case_in)
+        postconditions(*case_in, *case_out)
+        return 1, ""
+    except Exception as e:
+        return 0, f"{e}"
+
+
+if __name__ == '__main__':
+    judge_results = []
+    for tc_input, tc_output in filtered_testcases:
+        cd_output = [candidate(*tc_input)]
+        if tc_output != cd_output:
+            result, msg = validate_test_cases(tc_input, cd_output)
+            judge_results.append((tc_input, tc_output, cd_output, msg))
+    print(judge_results)

@@ -101,5 +101,9 @@ def send_email(title_, msg_=''):
 if __name__ == '__main__':
     conv = start_conversation()
     while True:
-        req = input()
+        req = ""
+        while True:
+            req += input() + '\n'
+            if req.endswith('\nsend\n'):
+                break
         print(conv.chat(req))

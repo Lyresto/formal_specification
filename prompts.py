@@ -144,3 +144,23 @@ Now please refine the requirements as required without changing the meaning of t
 
 # Refined requirements:
 """
+
+
+def code_prompt_for_iteration(param_names, info):
+    info = copy.copy(info)
+    prompt = "I evaluated the code you provided using testcases and found that it failed some of them. Please modify the original code based on the following detailed information:"
+    for case_in, case_out, code_out, msg in info[2:]:
+        msg_item = "\nwhen "
+        for params_name, param_value in zip(param_names, case_in):
+            if isinstance(param_value, str):
+                param_value = f"\"{params_name}\""
+            msg_item += f"{params_name} = {param_value}, "
+        if isinstance(case_out[0], str):
+            case_out[0] = f"\"{case_out[0]}\""
+        if isinstance(code_out[0], str):
+            code_out[0] = f"\"{code_out[0]}\""
+        msg_item += f"The expected output is: {case_out[0]}, but the output obtained by running the code is: {code_out[0]}, and the error in this output is: {msg}"
+        prompt += msg_item
+    prompt += "\nPlease provide the revised solution directly."
+    return prompt
+

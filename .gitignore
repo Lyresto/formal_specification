@@ -5,3 +5,5 @@ template/*.py
 read_file.py
 reference
 config.json
+*/.hypothesis
+*.pkl
