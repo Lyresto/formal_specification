@@ -1,13 +1,9 @@
 import ast
-import json
 import os
 import subprocess
 import tokenize
 from io import BytesIO
-
-
-with open('config.json') as f:
-    config = json.load(f)
+from config import config
 
 
 def parse_tokens(__code: str):
@@ -114,6 +110,16 @@ def extract_function(__content, __func_name):
 
 def extract_specification(__content):
     return '\n\n'.join([extract_function(__content, "preconditions"), extract_function(__content, "postconditions")])
+
+
+def parse_standard_testcase(__testcase):
+    standard_testcase = []
+    for tc_input, tc_output in zip(__testcase["input"], __testcase["output"]):
+        standard_testcase.append((
+            ast.literal_eval(f'[{tc_input}]'),
+            ast.literal_eval(f'[{tc_output}]')
+        ))
+    return standard_testcase
 
 
 if __name__ == '__main__':
