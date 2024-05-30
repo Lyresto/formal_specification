@@ -1,8 +1,11 @@
 import json
 
-from chatgpt import *
-from parse import *
-from prompts import *
+from chatgpt import start_conversation
+from parse import check_generated_testcase, extract_specification, check_specification, parse_testcase, \
+    assemble_solution, judge_code, parse_standard_testcase, check_func_param_and_return
+from prompts import specification_prompt, requirement_refine_prompt, specification_modify_prompt_for_proper_testcase, \
+    specification_modify_prompt_for_improper_testcase, testcase_prompt, code_prompt_for_iteration
+from config import config
 
 
 def remove_duplicate_testcase(__testcases):
@@ -194,7 +197,7 @@ def get_solution(idx, prompt, entrypoint, specification, generate_testcases, par
 
 def main():
     for idx, item in enumerate(data):
-        if idx != 2:
+        if idx != 0:
             continue
         # standard_testcase = [
         #     ([[4, 2, 3]], [[2, 1]]),
@@ -202,16 +205,17 @@ def main():
         #     ([[]], [[]]),
         #     ([[5, 0, 3, 0, 4, 2]], [[0, 1]])
         # ]
-        standard_testcase = [
-            ([3], [[3, 5, 7]]),
-            ([2], [[2, 4]])
-        ]
+        # standard_testcase = [
+        #     ([3], [[3, 5, 7]]),
+        #     ([2], [[2, 4]])
+        # ]
         # standard_testcase = [(["Example"], ["Example"]), (["Example 1"], ["Example_1"]),
         #                      ([" Example 2"], ["_Example_2"]),
         #                      ([" Example   3"], ["_Example-3"])]
         # standard_testcase = [([[[0,0,1,0], [0,1,0,0], [1,1,1,1]], 1], [6]),
         #                      ([[[0,0,1,1], [0,0,0,0], [1,1,1,1], [0,1,1,1]], 2], [5]),
         #                      ([[[0,0,0], [0,0,0]], 5], [0])]
+        standard_testcase = parse_standard_testcase(item["example_IO"])
         prompt = item["prompt"]
         entrypoint = item["entry_point"]
         task_id = item["task_id"]
@@ -230,7 +234,7 @@ def main():
 
 
 if __name__ == '__main__':
-    source_data_path = 'data/humaneval.jsonl'
+    source_data_path = config["data_path"]
     result_path = f'result/{source_data_path.split("/")[1]}'
 
     with open(source_data_path) as f:

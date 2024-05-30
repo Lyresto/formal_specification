@@ -1,5 +1,4 @@
 import copy
-import json
 import os.path
 import smtplib
 import time
@@ -9,16 +8,15 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 import pickle as pkl
 import openai
+from config import config
 
-with open('config.json') as f:
-    config = json.load(f)
 
 chat_gpt_key = config['chat_gpt_key']
 openai.api_key = chat_gpt_key
 
 
 class Conversation:
-    def __init__(self, save_path=None, temp=0.8, model='gpt-3.5-turbo-0613'):
+    def __init__(self, save_path=None, temp=0.8, model=config["model"]):
         self.messages = []
         self.save_path = save_path
         self.temp = temp
@@ -42,7 +40,7 @@ class Conversation:
         return resp
 
 
-def call_gpt(message, temp=0.8, model='gpt-3.5-turbo-0613'):
+def call_gpt(message, temp=0.8, model=config["model"]):
     print(f'Call gpt, temp = {temp}, model = {model}')
     if type(message) == str:
         message = [{'role': 'user', 'content': message}]

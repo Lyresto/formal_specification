@@ -20,6 +20,8 @@
 ```json
 {
     "chat_gpt_key": "your_api_key",
-    "python3_interpreter_path": "path_to_python.exe"
+    "python3_interpreter_path": "path_to_python.exe",
+    "model": "gpt-3.5-turbo-0613",
+    "data_path": "data/humaneval_test.jsonl"
 }
 ```
