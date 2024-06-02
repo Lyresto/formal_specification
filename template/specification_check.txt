@@ -205,6 +205,8 @@ if __name__ == '__main__':
     improper_testcase_pass_spec = []
     case_out_set = set()
     different_case_in_cnt = 0
+    if len(standard_testcases) == 0:
+        print([1.0, 1.0, [], []])
     for testcase in standard_testcases:
         result, message = validate_test_cases(*testcase)
         if result == 0:
