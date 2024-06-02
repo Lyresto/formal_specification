@@ -2,6 +2,7 @@ import copy
 
 
 def testcase_prompt(problem, example_testcase):
+    example_testcase_prompt = f'For this problem, an example IO tuple can be represented as: {example_testcase}'
     return f"""Given a question, you need to write several sets of test cases for checking the correctness of the code implementation about the functionality of the given question. Please do not duplicate the Example IO given in the question. You are required to generate at least 10 sets of test cases that comprehensively validate the implementation's functionality under various conditions, including but not limited to boundary test cases, functional correctness test cases, etc. The elements in each test case can only consist of two parts named 'caseIn' and 'caseOut'. Please also annotate each test case with detailed comments. Again, all you need to do and you can do is to return me only an array called test_cases consisting of caseIn and caseOut two parts.
 Here is an example: 
 
@@ -27,7 +28,7 @@ Now, please provide the test cases for the following problem. Please do not dupl
 # Problem:
 {problem}
 
-For this problem, an example IO tuple can be represented as: {example_testcase}
+{example_testcase_prompt if example_testcase is not None else ""}
 
 # Test case:
 """
@@ -149,7 +150,7 @@ Now please refine the requirements as required without changing the meaning of t
 def code_prompt_for_iteration(param_names, info):
     info = copy.copy(info)
     prompt = "I evaluated the code you provided using testcases and found that it failed some of them. Please modify the original code based on the following detailed information:"
-    for case_in, case_out, code_out, msg in info[2:]:
+    for case_in, case_out, code_out, msg in info[:2]:
         msg_item = "\nwhen "
         for params_name, param_value in zip(param_names, case_in):
             if isinstance(param_value, str):

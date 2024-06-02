@@ -22,8 +22,11 @@ def validate_test_cases(case_in, case_out):
 if __name__ == '__main__':
     judge_results = []
     for tc_input, tc_output in filtered_testcases:
-        cd_output = [candidate(*tc_input)]
-        if tc_output != cd_output:
-            result, msg = validate_test_cases(tc_input, cd_output)
-            judge_results.append((tc_input, tc_output, cd_output, msg))
+        try:
+            cd_output = [candidate(*tc_input)]
+            if tc_output != cd_output:
+                result, msg = validate_test_cases(tc_input, cd_output)
+                judge_results.append((tc_input, tc_output, cd_output, msg))
+        except Exception as e:
+            judge_results.append((tc_input, tc_output, [None], f"{e}"))
     print(judge_results)

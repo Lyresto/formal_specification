@@ -41,7 +41,7 @@ class Conversation:
 
 
 def call_gpt(message, temp=0.8, model=config["model"]):
-    print(f'Call gpt, temp = {temp}, model = {model}')
+    print(f'[INFO] call gpt, temp = {temp}, model = {model}')
     if type(message) == str:
         message = [{'role': 'user', 'content': message}]
     max_call = 20
@@ -54,8 +54,8 @@ def call_gpt(message, temp=0.8, model=config["model"]):
             )
             break
         except Exception as e:
-            print(e)
-            print("fail to call gpt, trying again...")
+            print('[ERROR]', e)
+            print("[ERROR] fail to call gpt, trying again...")
             max_call -= 1
             if max_call == 0:
                 send_email(f'GPT连续调用失败, model={model}, time={datetime.now()}, error={e}')
