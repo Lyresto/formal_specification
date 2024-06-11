@@ -1,10 +1,13 @@
 import ast
+import json
 import os
 import re
 import subprocess
 import tokenize
+import warnings
 from io import BytesIO
 from config import config
+from template.test_code import package_test_code
 
 
 def parse_tokens(__code: str):
@@ -15,7 +18,17 @@ def parse_tokens(__code: str):
         return [""]
 
 
+def load_jsonl(path) -> list[dict]:
+    with open(path) as f:
+        data = []
+        for line in f:
+            data.append(json.loads(line))
+        return data
+
+
+# deprecated
 def check_func_param_and_return(__code, __entrypoint):
+    warnings.warn("deprecated.")
     tokens = parse_tokens(__code)
     func_def_line = False
     next_is_param = False
@@ -38,6 +51,113 @@ def check_func_param_and_return(__code, __entrypoint):
         elif func_def_line and token.type in [tokenize.NEWLINE, tokenize.NL]:
             break
     return len(__params) > 1, False, __params
+
+
+def get_data_info(idx, item):
+    dataset = config["dataset"]
+    if dataset in ["humaneval", "humaneval-x"]:
+        task_id = item["task_id"]
+        prompt = item["prompt"]
+        language = "python"
+        if dataset == "humaneval-x":
+            language = task_id.split('/')[0].lower()
+            if language == "rust":
+                prompt += item["declaration"]
+            info = parse_func_info_for_humaneval(item["declaration"], language)
+            item = load_jsonl('data/humaneval.jsonl')[idx % 164]
+        else:
+            info = parse_func_info_for_humaneval(
+                load_jsonl('data/humaneval-x.jsonl')[656 + idx]["declaration"], language)
+        standard_testcases = parse_standard_testcase(item["example_IO"])
+        info.update({
+            "task_id": task_id,
+            "language": language,
+            "prompt": prompt,
+            "standard_testcases": standard_testcases
+        })
+    else:
+        raise NotImplementedError()
+    return info
+
+
+def parse_func_info_for_humaneval(declaration, language):
+    """
+    cpp: bool has_close_elements(vector<float> numbers, float threshold){
+         int max_fill(vector<vector<int>> grid,int capacity){
+    go: func HasCloseElements(numbers []float64, threshold float64) bool {
+        func MaxFill(grid [][]int, capacity int) int {
+    java: public boolean hasCloseElements(List<Double> numbers, double threshold) {
+          public int maxFill(List<List<Integer>> grid, int capacity) {
+    javascript: const hasCloseElements = (numbers, threshold) => {
+                const maxFill = (grid, capacity) => {
+    python: def has_close_elements(numbers: List[float], threshold: float) -> bool:
+            def max_fill(grid, capacity):
+    rust: fn has_close_elements(numbers:Vec<f32>, threshold: f32) -> bool{
+          fn max_fill(grid:Vec<Vec<i32>>, capacity:i32) -> i32{
+    """
+    func_sign = ""
+    for line in declaration.split('\n')[::-1]:
+        line = line.strip()
+        if len(line) == 0 or line.startswith('import ') or line.startswith('from '):
+            continue
+        func_sign = line
+        break
+    if language == 'cpp':
+        func_sign_pattern = '^(.+?)\\s+([_\\w]+)\\s*\\((.+?)\\)\\s*\\{$'
+        ret_entry_param = (1, 2, 3)
+        param_pattern = '^(.+?)\\s+([_\\w]+)$'
+        type_name = (1, 2)
+    elif language == 'go':
+        func_sign_pattern = '^func\\s+([_\\w]+)\\s*\\((.+?)\\)\\s*(.+?)\\s*\\{$'
+        ret_entry_param = (3, 1, 2)
+        param_pattern = '^([_\\w]+)\\s+(.+?)$'
+        type_name = (2, 1)
+    elif language == 'java':
+        func_sign_pattern = '^public\\s+(.+?)\\s+([_\\w]+)\\s*\\((.+?)\\)\\s*\\{$'
+        ret_entry_param = (1, 2, 3)
+        param_pattern = '^(.+?)\\s+([_\\w]+)$'
+        type_name = (1, 2)
+    elif language == 'javascript':
+        func_sign_pattern = '^const\\s+([_\\w]+)\\s*=\\s*\\((.+?)\\)\\s*=>\\s*\\{$'
+        ret_entry_param = (-1, 1, 2)
+        param_pattern = '^([_\\w]+)$'
+        type_name = (-1, 1)
+    elif language == 'python':
+        func_sign_pattern = '^def\\s+([_\\w]+)\\s*\\((.+?)\\).*?:$'
+        ret_entry_param = (-1, 1, 2)
+        param_pattern = '^([_\\w]+)\\s*:?.*$'
+        type_name = (-1, 1)
+    # elif language == 'rust':
+    #     func_sign_pattern = '^fn\\s+([_\\w]+)\\s*\\((.+?)\\)\\s*->\\s*(.+?)\\s*\\{$'
+    #     ret_entry_param = (3, 1, 2)
+    #     param_pattern = '^([_\\w]+)\\s*:\\s*(.+?)$'
+    #     type_name = (2, 1)
+    else:
+        raise ValueError(f'{language} is not supported')
+
+    matches = re.match(func_sign_pattern, func_sign)
+    if ret_entry_param[0] != -1:
+        ret_type = matches.group(ret_entry_param[0])
+    else:
+        ret_type = None
+    entrypoint = matches.group(ret_entry_param[1])
+    params = matches.group(ret_entry_param[2])
+    param_names = []
+    param_types = []
+    for param in params.split(','):
+        matches = re.match(param_pattern, param.strip())
+        param_names.append(matches.group(type_name[1]))
+        if type_name[0] != -1:
+            param_types.append(matches.group(type_name[0]))
+        else:
+            param_types.append(None)
+    return {
+        "entrypoint": entrypoint,
+        "param_types": param_types,
+        "param_names": param_names,
+        "ret_type": ret_type,
+        "func_sign": func_sign
+    }
 
 
 def run_template(__testcases, __specification, __testcase_type, __file_name, __solution=None):
@@ -92,14 +212,85 @@ def parse_testcase(__testcases):
     return run_template(__testcases, None, "generated", "testcase_parse")
 
 
+# deprecated
 def judge_code(__testcases, __specification, __solution):
+    warnings.warn("deprecated.")
     try:
         return run_template(__testcases, __specification, "filtered", "code_judge", __solution)
     except RuntimeError as e:
         return [(*__tc, [None], f'{e}') for __tc in __testcases]
 
 
-def assemble_solution(__prompt, __code, __entrypoint):
+def extract_completed_code(__raw_code, __info):
+    func_sign_prefix = __info["func_sign"].split('(')[0].strip()
+    filtered_lines = []
+    for line in __raw_code.split('\n')[::-1]:
+        if line.strip().startswith(func_sign_prefix):
+            break
+        filtered_lines.append(line)
+    filtered_lines = filtered_lines[::-1]
+    if __info["language"] == 'python':
+        code = __info["func_sign"] + '\n' + '\n'.join(filtered_lines)
+        completed_code_with_func_sign = extract_function(code, __info["entrypoint"], True)
+        return '\n'.join(completed_code_with_func_sign.split('\n')[1:])
+    else:
+        left_braces = 1
+        right_braces = 0
+        final_lines = []
+        for line in filtered_lines:
+            final_lines.append(line)
+            left_braces += line.count('{')
+            right_braces += line.count('}')
+            if left_braces == right_braces:
+                break
+        if __info["language"] in ['java']:
+            final_lines.append('}')
+        return '\n'.join(final_lines)
+
+
+def judge_code_v2(__testcases, __specification, __raw_code, __info):
+    if config["dataset"] in ["humaneval", "humaneval-x"]:
+        completed_code = extract_completed_code(__raw_code, __info)
+        solution_outputs = [None] * len(__testcases)
+        test_code = package_test_code(__testcases, __info)
+        with open('result/tmp/tmp.jsonl', 'w+') as f:
+            json.dump({"task_id": __info["task_id"], "completion": completed_code, "test_code": test_code}, f)
+        docker_base_dir = "/workspace/CodeGeeX"
+        cur_path = os.path.abspath('.').replace('\\', '/').replace(':', '')
+        cur_path = '/' + cur_path[0].lower() + cur_path[1:]
+        language = 'js' if __info["language"] == 'javascript' else __info["language"]
+        cmd = ["docker", "run", "--gpus", "all",
+               "-v", f"{cur_path}/result/tmp/tmp.jsonl:{docker_base_dir}/data.jsonl",
+               "-v", f"{cur_path}/humaneval-x/codegeex/benchmark/execution.py:"
+                     f"{docker_base_dir}/codegeex/benchmark/execution.py",
+               "-v", f"{cur_path}/humaneval-x/codegeex/benchmark/evaluate_humaneval_x.py:"
+                     f"{docker_base_dir}/codegeex/benchmark/humaneval-x/evaluate_humaneval_x.py",
+               "rishubi/codegeex", "bash", "-c",
+               f'{docker_base_dir}/scripts/evaluate_humaneval_x.sh {docker_base_dir}/data.jsonl {language} 4']
+        process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+        while True:
+            out = process.stdout.readline().decode('utf8').strip()
+            # err = process.stderr.readline().decode('utf8').strip()
+            if out.startswith('[SOLUTION OUTPUT') or process.poll() is not None:
+                if out.startswith('[SOLUTION OUTPUT'):
+                    matches = re.match('\\[SOLUTION OUTPUT (\\d+)] (.*)', out)
+                    output = matches.group(2).strip()
+                    try:
+                        solution_outputs[int(matches.group(1))] = ast.literal_eval(output)
+                    except ValueError:
+                        output = output.replace('true', 'True')
+                        output = output.replace('false', 'False')
+                        solution_outputs[int(matches.group(1))] = ast.literal_eval(output)
+                else:
+                    break
+        triphase_testcases = [(*tc, [sol_out]) for tc, sol_out in zip(__testcases, solution_outputs)]
+        return run_template(triphase_testcases, __specification, "triphase", "code_judge_2"), completed_code
+    else:
+        raise NotImplementedError()
+
+
+def package_solution(__prompt, __code, __entrypoint):
+    warnings.warn("deprecated.")
     func_in_prompt = extract_function(__prompt, __entrypoint, keep_intact=True)
     if f'def {__entrypoint}(' not in __code:
         func_sign = list(filter(lambda l: l.startswith('def '), func_in_prompt.split('\n')))[0]
@@ -189,6 +380,7 @@ def parse_standard_testcase(__testcase):
 
 
 if __name__ == '__main__':
+    print(parse_func_info_for_humaneval("fn max_fill(grid:Vec<Vec<i32>>, capacity:i32) -> i32{", "rust"))
     # print(ast.literal_eval("[([[1, 3, 5]], []),([[2, 4, 6]], [[2, 0]])]"))
     # exit(-1)
     # print(check_func_param_and_return("def f(a: List, b, c: tuple[List, List]):", "f"))
