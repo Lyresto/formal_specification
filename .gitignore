@@ -9,7 +9,9 @@ reference
 config.json
 */.hypothesis
 *.pkl
+!conversation
 result/*
+!result
 humaneval-x/*
 !humaneval-x/codegeex
 humaneval-x/codegeex/*
