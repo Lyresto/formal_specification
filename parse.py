@@ -211,7 +211,10 @@ def check_generated_testcase(__testcases, __specification):
 
 
 def parse_testcase(__testcases):
-    return run_template(extract_testcase(__testcases), None, "generated", "testcase_parse")
+    try:
+        return run_template(extract_testcase(__testcases), None, "generated", "testcase_parse")
+    except RuntimeError:
+        return []
 
 
 def extract_testcase(__raw_testcases):
