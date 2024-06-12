@@ -209,7 +209,23 @@ def check_generated_testcase(__testcases, __specification):
 
 
 def parse_testcase(__testcases):
-    return run_template(__testcases, None, "generated", "testcase_parse")
+    return run_template(extract_testcase(__testcases), None, "generated", "testcase_parse")
+
+
+def extract_testcase(__raw_testcases):
+    lines = []
+    found = False
+    left_bracket = right_bracket = 0
+    for line in __raw_testcases.split('\n'):
+        if line.startswith('test_case'):
+            found = True
+        if found:
+            lines.append(line)
+            left_bracket += line.count('[')
+            right_bracket += line.count(']')
+        if left_bracket == right_bracket > 0:
+            break
+    return '\n'.join(lines)
 
 
 # deprecated
@@ -380,7 +396,7 @@ def parse_standard_testcase(__testcase):
 
 
 if __name__ == '__main__':
-    print(parse_func_info_for_humaneval("fn max_fill(grid:Vec<Vec<i32>>, capacity:i32) -> i32{", "rust"))
+    # print(parse_func_info_for_humaneval("fn max_fill(grid:Vec<Vec<i32>>, capacity:i32) -> i32{", "rust"))
     # print(ast.literal_eval("[([[1, 3, 5]], []),([[2, 4, 6]], [[2, 0]])]"))
     # exit(-1)
     # print(check_func_param_and_return("def f(a: List, b, c: tuple[List, List]):", "f"))
