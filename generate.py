@@ -234,7 +234,7 @@ def main():
         log('pass rate =', ps_rate)
 
         with open(result_path, 'a') as result_file:
-            result_file.write(f'{json.dumps({"task_id": info["task_id"], "completion": best_code})}\n')
+            result_file.write(f'{json.dumps({"task_id": info["task_id"], "completion": best_code,"pass_rate":ps_rate})}\n')
 
 
 if __name__ == '__main__':

@@ -10,7 +10,7 @@ from email.mime.text import MIMEText
 import pickle as pkl
 import openai
 from config import config
-
+from gradio_client import Client
 
 chat_gpt_key = config['chat_gpt_key']
 openai.api_key = chat_gpt_key
@@ -31,7 +31,7 @@ class Conversation:
                 msg.append(self.messages[idx])
         self.messages.append({"role": "user", "content": prompt})
         msg.append(self.messages[-1])
-        resp = call_gpt(msg, self.temp, self.model)
+        resp = call_deepseek_coder(msg)
         self.messages.append({"role": "assistant", "content": resp})
         if len(self.messages) > 20:
             self.messages = self.messages[1:]
@@ -63,6 +63,39 @@ def call_gpt(message, temp=0.8, model=config["model"]):
             time.sleep(2)
     return response['choices'][0]['message']['content']
 
+
+def call_deepseek_coder(messages, temp=0.8,
+                        model="https://deepseek-ai-deepseek-coder-7b-instruct.hf.space/--replicas/esnsf/"):
+    print(f'[INFO] call deepseek coder, temp = {temp}, model = {model}')
+    if type(messages) == list and len(messages) > 0 and isinstance(messages[0], dict):
+        message = messages[0]['content']
+    else:
+        message = messages
+
+    client = Client(model)
+    max_call = 20
+    while True:
+        try:
+            response = client.predict(
+                message,  # str in 'Message' Textbox component
+                "",  # str in 'System prompt' Textbox component
+                2048,  # int | float (numeric value between 1 and 2048) in 'Max new tokens' Slider component
+                0.05,  # int | float (numeric value between 0.05 and 1.0) in 'Top-p (nucleus sampling)' Slider component
+                100,  # int | float (numeric value between 1 and 1000) in 'Top-k' Slider component
+                1,  # int | float (numeric value between 1.0 and 2.0) in 'Repetition penalty' Slider component
+                api_name="/chat"
+            )
+            break
+        except Exception as e:
+            print('[ERROR]', e)
+            print("[ERROR] fail to call deepseek coder, trying again...")
+            max_call -= 1
+            if max_call == 0:
+                send_email(f'DeepSeek Coder连续调用失败, model={model}, time={datetime.now()}, error={e}')
+                raise Exception(f'DeepSeek Coder连续调用失败, error={e}')
+            time.sleep(2)
+
+    return response
 
 def redirect_save_path(save_path):
     if save_path is None:
