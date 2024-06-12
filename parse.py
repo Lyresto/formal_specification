@@ -57,7 +57,7 @@ def get_data_info(idx, item):
     dataset = config["dataset"]
     if dataset in ["humaneval", "humaneval-x"]:
         task_id = item["task_id"]
-        prompt = item["prompt"]
+        python_prompt = prompt = item["prompt"]
         language = "python"
         if dataset == "humaneval-x":
             language = task_id.split('/')[0].lower()
@@ -65,6 +65,7 @@ def get_data_info(idx, item):
                 prompt += item["declaration"]
             info = parse_func_info_for_humaneval(item["declaration"], language)
             item = load_jsonl('data/humaneval.jsonl')[idx % 164]
+            python_prompt = item["prompt"]
         else:
             info = parse_func_info_for_humaneval(
                 load_jsonl('data/humaneval-x.jsonl')[656 + idx]["declaration"], language)
@@ -73,6 +74,7 @@ def get_data_info(idx, item):
             "task_id": task_id,
             "language": language,
             "prompt": prompt,
+            "python_prompt": python_prompt,
             "standard_testcases": standard_testcases
         })
     else:
