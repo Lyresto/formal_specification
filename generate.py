@@ -152,17 +152,25 @@ def get_specifications(idx, prompt, standard_testcase, param_names):
 
 
 def get_generated_testcase(idx, prompt, standard_testcase):
-    conversation = start_conversation(
-        save_path=f'conversation/{middle_path}/testcase/{idx}.pkl', load_if_exist=True
-    )
-    if len(conversation.messages) > 0:
-        raw_testcase = conversation.messages[-1]["content"]
-    else:
-        raw_testcase = conversation.chat(
-            testcase_prompt(prompt, standard_testcase[0] if len(standard_testcase) > 0 else None)
+    max_trials = 5
+    trials = 0
+    minimum_testcases = 5
+    while True:
+        conversation = start_conversation(
+            save_path=f'conversation/{middle_path}/testcase/{idx}-{trials}.pkl', load_if_exist=True
         )
+        if len(conversation.messages) > 0:
+            raw_testcase = conversation.messages[-1]["content"]
+        else:
+            raw_testcase = conversation.chat(
+                testcase_prompt(prompt, standard_testcase[0] if len(standard_testcase) > 0 else None)
+            )
+        raw_testcase = parse_testcase(raw_testcase)
+        trials += 1
+        if len(raw_testcase) >= minimum_testcases or trials >= max_trials:
+            break
     # log(raw_testcase)
-    generated_testcase = remove_duplicate_testcase(parse_testcase(raw_testcase))
+    generated_testcase = remove_duplicate_testcase(raw_testcase)
     return generated_testcase
 
 
