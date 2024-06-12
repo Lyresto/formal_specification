@@ -211,13 +211,13 @@ def main():
         log('starts generation')
 
         info = get_data_info(item_idx, item)
-        prompt = info["prompt"]
+        python_prompt = info["python_prompt"]
         standard_testcases = info["standard_testcases"]
 
         intermediate_results = load_intermediate_results(f'conversation/{middle_path}/intermediate/{item_idx}.pkl')
         if not intermediate_results.has_results():
-            generated_testcase = get_generated_testcase(item_idx, prompt, standard_testcases)
-            specifications = get_specifications(item_idx, prompt, standard_testcases, info["param_names"])
+            generated_testcase = get_generated_testcase(item_idx, python_prompt, standard_testcases)
+            specifications = get_specifications(item_idx, python_prompt, standard_testcases, info["param_names"])
             final_specification, filtered_testcases = \
                 choose_specification_and_testcase(specifications, generated_testcase)
             intermediate_results.save(final_specification, filtered_testcases)
