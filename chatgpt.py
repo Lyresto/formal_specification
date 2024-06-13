@@ -31,7 +31,10 @@ class Conversation:
                 msg.append(self.messages[idx])
         self.messages.append({"role": "user", "content": prompt})
         msg.append(self.messages[-1])
-        resp = call_deepseek_coder(msg)
+        if(self.model=="gpt-3.5-turbo"):
+            resp = call_gpt(msg, self.temp, self.model)
+        else:
+            resp = call_deepseek_coder(msg,self.temp,self.model)
         self.messages.append({"role": "assistant", "content": resp})
         if len(self.messages) > 20:
             self.messages = self.messages[1:]
