@@ -108,7 +108,7 @@ def get_specifications(idx, prompt, standard_testcase, param_names):
                         refined_description = refine_conversation.messages[-1]["content"]
                     else:
                         refined_description = refine_conversation.chat(requirement_refine_prompt(prompt))
-                specification = conversation.chat(specification_prompt(prompt, refined_description))
+                specification = conversation.chat(specification_prompt(param_names,prompt, refined_description))
 
             while True:
                 specification = extract_specification(specification)
@@ -241,7 +241,7 @@ def main():
         log('pass rate =', ps_rate)
 
         with open(result_path, 'a') as result_file:
-            result_file.write(f'{json.dumps({"task_id": info["task_id"], "completion": best_code})}\n')
+            result_file.write(f'{json.dumps({"task_id": info["task_id"], "completion": best_code,"pass_rate":ps_rate})}\n')
 
 
 if __name__ == '__main__':
