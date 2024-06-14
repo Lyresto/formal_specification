@@ -7,7 +7,10 @@ import tokenize
 import warnings
 from io import BytesIO
 from config import config
+from prompts import initial_prompt_for_code_contests
 from template.test_code import package_test_code
+
+dataset = config["dataset"]
 
 
 def parse_tokens(__code: str):
@@ -54,31 +57,37 @@ def check_func_param_and_return(__code, __entrypoint):
 
 
 def get_data_info(idx, item):
-    dataset = config["dataset"]
     if dataset in ["humaneval", "humaneval-x"]:
         task_id = item["task_id"]
-        python_prompt = prompt = item["prompt"]
-        language = "python"
+        prompt = item["prompt"]
         if dataset == "humaneval-x":
             language = task_id.split('/')[0].lower()
             if language == "rust":
-                prompt += item["declaration"]
+                prompt = item["prompt"] + item["declaration"]
             info = parse_func_info_for_humaneval(item["declaration"], language)
             item = load_jsonl('data/humaneval.jsonl')[idx % 164]
             python_prompt = item["prompt"]
         else:
+            language = "python"
+            python_prompt = prompt
             info = parse_func_info_for_humaneval(
                 load_jsonl('data/humaneval-x.jsonl')[656 + idx]["declaration"], language)
         standard_testcases = parse_standard_testcase(item["example_IO"])
-        info.update({
-            "task_id": task_id,
-            "language": language,
-            "prompt": prompt,
-            "python_prompt": python_prompt,
-            "standard_testcases": standard_testcases
-        })
+    elif dataset == 'code_contests':
+        info = dict()
+        task_id = item["name"]
+        language = config["language_for_code_contests"]
+        python_prompt = prompt = initial_prompt_for_code_contests(item["description"], language)
+        standard_testcases = parse_standard_testcase(item["public_tests"])
     else:
         raise NotImplementedError()
+    info.update({
+        "task_id": task_id,
+        "language": language,
+        "prompt": prompt,
+        "python_prompt": python_prompt,
+        "standard_testcases": standard_testcases
+    })
     return info
 
 
@@ -393,11 +402,33 @@ def extract_specification(__content):
 def parse_standard_testcase(__testcase):
     standard_testcase = []
     for tc_input, tc_output in zip(__testcase["input"], __testcase["output"]):
-        standard_testcase.append((
-            ast.literal_eval(f'[{tc_input}]'),
-            ast.literal_eval(f'[{tc_output}]')
-        ))
+        if dataset in ['humaneval', 'humaneval-x']:
+            standard_testcase.append((
+                ast.literal_eval(f'[{tc_input}]'),
+                ast.literal_eval(f'[{tc_output}]')
+            ))
+        elif dataset == 'code_contests':
+            standard_testcase.append((
+                parse_terminal_io(tc_input),
+                parse_terminal_io(tc_output)
+            ))
     return standard_testcase
+
+
+def parse_terminal_io(io: str):
+    parsed_io = []
+
+    def __convert_str_2_var(s):
+        try:
+            return ast.literal_eval(s)
+        except ValueError:
+            return s
+
+    for line in io.split('\n'):
+        if len(line.strip()) == 0:
+            continue
+        parsed_io.append(list(map(__convert_str_2_var, filter(lambda s: len(s) > 0, line.split(' ')))))
+    return parsed_io
 
 
 if __name__ == '__main__':

@@ -73,6 +73,8 @@ def redirect_save_path(save_path):
     if paths[1] == 'humaneval-x' and (paths[3] != 'code' or (paths[3] == 'code' and item_idx // 164 == 4)):
         paths[1] = 'humaneval'
         paths[-1] = f'{item_idx % 164}{matches.group(2)}'
+    elif paths[1] == 'code_contests' and paths[4] != 'code':
+        paths[3] = 'python'
     return '/'.join(paths)
 
 

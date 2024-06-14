@@ -169,3 +169,8 @@ def code_prompt_for_iteration(param_names, info):
     prompt += "\nPlease provide the revised solution directly."
     return prompt
 
+
+def initial_prompt_for_code_contests(description, language):
+    prompt = description + f"\n\nPlease use {language} language to solve this problem."
+    return prompt
+
