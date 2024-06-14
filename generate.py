@@ -1,5 +1,6 @@
 import json
 import os.path
+import pandas as pd
 
 from chatgpt import start_conversation, load_intermediate_results
 from config import config
@@ -209,7 +210,7 @@ def get_solution(idx, info, specification, generate_testcases):
 def main():
     global item_idx
     for item_idx, item in enumerate(data):
-        if item["task_id"] in completions:
+        if item[task_key] in completions:
             log('skip')
             continue
         # if not item["task_id"].startswith('Java'):
@@ -246,15 +247,28 @@ def main():
 
 if __name__ == '__main__':
     source_data_path = config["data_path"]
-    middle_path = f'{config["dataset"]}/{config["model"]}'
-    result_path = f'result/{config["dataset"]}_{config["model"]}.jsonl'
+    dataset = config["dataset"]
+    model = config["model"]
+
     print("Config:\n", json.dumps(config, indent=4))
 
-    data = load_jsonl(source_data_path)
+    if dataset in ['humaneval', 'humaneval-x']:
+        data = load_jsonl(source_data_path)
+        task_key = "task_id"
+        middle_path = f'{dataset}/{model}'
+        result_path = f'result/{dataset}_{model}.jsonl'
+    elif dataset == 'code_contests':
+        data = pd.read_parquet(source_data_path).to_dict(orient='records')
+        task_key = "name"
+        language = config["language_for_code_contests"]
+        middle_path = f'{dataset}/{model}/{language}'
+        result_path = f'result/{dataset}_{model}_{language}.jsonl'
+    else:
+        raise NotImplementedError()
     completions = set()
     if os.path.exists(result_path):
         with open(result_path) as f:
             for line in f:
                 if line.strip() != "":
-                    completions.add(json.loads(line)["task_id"])
+                    completions.add(json.loads(line)[task_key])
     main()

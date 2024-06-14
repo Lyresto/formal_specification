@@ -19,3 +19,5 @@ humaneval-x/codegeex/*
 humaneval-x/codegeex/benchmark/*
 !humaneval-x/codegeex/benchmark/evaluate_humaneval_x.py
 !humaneval-x/codegeex/benchmark/execution.py
+*.md
+!README.md
