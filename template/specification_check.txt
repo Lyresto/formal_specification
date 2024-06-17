@@ -1,6 +1,7 @@
 import copy
 import random
 import re
+import traceback
 from typing import Any, Set, List, Dict, Tuple
 import math
 
@@ -189,7 +190,19 @@ def validate_test_cases(case_in, case_out):
         postconditions(*case_in, *case_out)
         return 1, ""
     except Exception as e:
-        return 0, f"{e}"
+        validate_result = 0, f"{e}"
+        _, lineno, _, _ = traceback.extract_tb(e.__traceback__)[-1]
+        if hasattr(case_in[0], '__len__') and len(case_in[0]) == 1:
+            case_in = [case_in[0][0]]
+        if hasattr(case_out[0], '__len__') and len(case_out[0]) == 1:
+            case_out = [case_out[0][0]]
+        try:
+            preconditions(*case_in)
+            postconditions(*case_in, *case_out)
+            return 1, ""
+        except Exception as e2:
+            _, lineno2, _, _ = traceback.extract_tb(e2.__traceback__)[-1]
+            return validate_result if lineno >= lineno2 else (0, f"{e2}")
 
 
 if __name__ == '__main__':

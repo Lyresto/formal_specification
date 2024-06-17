@@ -6,8 +6,9 @@ import subprocess
 import tokenize
 import warnings
 from io import BytesIO
+from typing import Any
+
 from config import config
-from prompts import initial_prompt_for_code_contests
 from template.test_code import package_test_code
 
 dataset = config["dataset"]
@@ -56,6 +57,11 @@ def check_func_param_and_return(__code, __entrypoint):
     return len(__params) > 1, False, __params
 
 
+def initial_prompt_for_code_contests(description, language):
+    prompt = description + f"\n\nPlease use {language} language to solve this problem."
+    return prompt
+
+
 def get_data_info(idx, item):
     if dataset in ["humaneval", "humaneval-x"]:
         task_id = item["task_id"]
@@ -74,10 +80,11 @@ def get_data_info(idx, item):
                 load_jsonl('data/humaneval-x.jsonl')[656 + idx]["declaration"], language)
         standard_testcases = parse_standard_testcase(item["example_IO"])
     elif dataset == 'code_contests':
-        info = dict()
+        info = {"param_names": ["case_in"]}
         task_id = item["name"]
         language = config["language_for_code_contests"]
-        python_prompt = prompt = initial_prompt_for_code_contests(item["description"], language)
+        python_prompt = item["description"]
+        prompt = initial_prompt_for_code_contests(item["description"], language)
         standard_testcases = parse_standard_testcase(item["public_tests"])
     else:
         raise NotImplementedError()
@@ -221,7 +228,11 @@ def check_generated_testcase(__testcases, __specification):
 
 def parse_testcase(__testcases):
     try:
-        return run_template(extract_testcase(__testcases), None, "generated", "testcase_parse")
+        parsed_testcases = run_template(extract_testcase(__testcases), None, "generated", "testcase_parse")
+        if dataset == 'code_contests':
+            for i, __testcase in enumerate(parsed_testcases):
+                parsed_testcases[i] = ([__testcase[0]], [__testcase[1]])
+        return parsed_testcases
     except RuntimeError:
         return []
 
@@ -279,7 +290,7 @@ def extract_completed_code(__raw_code, __info):
 
 
 def judge_code_v2(__testcases, __specification, __raw_code, __info):
-    if config["dataset"] in ["humaneval", "humaneval-x"]:
+    if dataset in ["humaneval", "humaneval-x"]:
         completed_code = extract_completed_code(__raw_code, __info)
         solution_outputs = [None] * len(__testcases)
         test_code = package_test_code(__testcases, __info)
@@ -315,6 +326,14 @@ def judge_code_v2(__testcases, __specification, __raw_code, __info):
                     break
         triphase_testcases = [(*tc, [sol_out]) for tc, sol_out in zip(__testcases, solution_outputs)]
         return run_template(triphase_testcases, __specification, "triphase", "code_judge_2"), completed_code
+    elif dataset == 'code_contests':
+        testcases_str = []
+        for tc_input, tc_output in __testcases:
+            testcases_str.append([to_terminal_io(tc_input[0]), to_terminal_io(tc_output[0])])
+        task_id = f'{__info["language"]}/{__info["task_id"]}'
+        with open('result/tmp/tmp.jsonl', 'w+') as f:
+            json.dump({"task_id": task_id, "test_code": __raw_code, "testcases": testcases_str}, f)
+
     else:
         raise NotImplementedError()
 
@@ -409,8 +428,8 @@ def parse_standard_testcase(__testcase):
             ))
         elif dataset == 'code_contests':
             standard_testcase.append((
-                parse_terminal_io(tc_input),
-                parse_terminal_io(tc_output)
+                [parse_terminal_io(tc_input)],
+                [parse_terminal_io(tc_output)]
             ))
     return standard_testcase
 
@@ -431,7 +450,12 @@ def parse_terminal_io(io: str):
     return parsed_io
 
 
+def to_terminal_io(io: list[list[Any]]):
+    return '\n'.join(' '.join(str(elem) for elem in line) for line in io)
+
+
 if __name__ == '__main__':
+    # print(to_terminal_io([[1, 2], ["qqq"]]))
     # print(parse_func_info_for_humaneval("fn max_fill(grid:Vec<Vec<i32>>, capacity:i32) -> i32{", "rust"))
     # print(ast.literal_eval("[([[1, 3, 5]], []),([[2, 4, 6]], [[2, 0]])]"))
     # exit(-1)
