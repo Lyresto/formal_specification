@@ -26,6 +26,7 @@
     "python3_interpreter_path": "path_to_python.exe",
     "model": "gpt-3.5-turbo-0613",
     "dataset": "humaneval",
+    "language_for_code_contests": "java",
     "data_path": "data/humaneval.jsonl"
 }
 ```

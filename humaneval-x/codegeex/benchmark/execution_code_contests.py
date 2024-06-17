@@ -72,7 +72,6 @@ def check_correctness(
 
         if "python" in language_type.lower():
             # Disable functionalities that can make destructive changes to the test.
-            reliability_guard()
             open('test.py', 'w').write(code)
             try:
                 with time_limit(timeout):
@@ -96,6 +95,8 @@ def check_correctness(
                         elif not failed:
                             result.append(f"failed: {err}")
                             failed = True
+                        if len(err) > 0:
+                            print(f'\n<TESTCASE ERROR {i}>\n{err.strip()}\n</TESTCASE ERROR {i}>\n')
                     if not failed:
                         result.append("passed")
 
@@ -202,14 +203,9 @@ def check_correctness(
             shutil.rmtree(tmp_dir)
         elif "cpp" in language_type.lower():
 
-            open(f"test.cpp", 'w').write(sample["test_code"])
-            if "162" in task_id:
-                compilation_result = subprocess.run(["/usr/bin/g++", "-std=c++11", "test.cpp", "-lcrypto", "-lssl"],
-                                                    timeout=timeout,
-                                                    capture_output=True)
-            else:
-                compilation_result = subprocess.run(["/usr/bin/g++", "-std=c++11", "test.cpp"], timeout=timeout,
-                                                    capture_output=True)
+            open(f"test.cpp", 'w').write(code)
+            compilation_result = subprocess.run(["/usr/bin/g++", "-std=c++11", "test.cpp"], timeout=timeout,
+                                                capture_output=True)
             if compilation_result.returncode != 0:
                 if compilation_result.stderr:
                     err = compilation_result.stderr.decode()
@@ -219,7 +215,6 @@ def check_correctness(
                 print("failed: compilation error")
             else:
                 try:
-                    exec_result = None
                     with time_limit(timeout):
                         # WARNING
                         # This program exists to execute untrusted model-generated code. Although
@@ -230,26 +225,21 @@ def check_correctness(
                         # does not perform destructive actions on their host or network.
                         # Once you have read this disclaimer and taken appropriate precautions,
                         # uncomment the following line and proceed at your own risk:
-                        exec_result = subprocess.run(["./a.out"], timeout=timeout, capture_output=True)
-
-                    if exec_result.returncode == 0:
-                        result.append("passed")
-                    else:
-                        if exec_result.stderr:
-                            try:
-                                err = exec_result.stderr.decode()
-                            except:
-                                err = exec_result.stderr
-                        else:
-                            try:
-                                err = exec_result.stdout.decode()
-                            except:
-                                err = exec_result.stdout
-                        result.append(f"failed: {err}")
-                    try:
-                        print(exec_result.stdout.decode())
-                    except:
-                        print("decode error")
+                        failed = False
+                        for i, tc in enumerate(testcases):
+                            tc_input, _ = tc
+                            progress = subprocess.Popen(['./a.out'], stdin=subprocess.PIPE,
+                                                        stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                            out, err = progress.communicate(input=tc_input)
+                            if len(err) == 0:
+                                print(f'\n<TESTCASE OUTPUT {i}>\n{out.strip()}\n</TESTCASE OUTPUT {i}>\n')
+                            elif not failed:
+                                result.append(f"failed: {err}")
+                                failed = True
+                            if len(err) > 0:
+                                print(f'\n<TESTCASE ERROR {i}>\n{err.strip()}\n</TESTCASE ERROR {i}>\n')
+                        if not failed:
+                            result.append("passed")
                 except TimeoutException:
                     print("time out")
                     result.append("timed out")
@@ -325,17 +315,7 @@ def check_correctness(
         elif "java" in language_type.lower():
             assert tmp_dir is not None, "Java should be evaluated in a temporary dir."
 
-            import os
-            import shutil
-
-            if "tmp" not in tmp_dir:
-                tmp_dir = os.path.join(tmp_dir, "tmp")
-            tmp_dir = os.path.join(tmp_dir, f"{task_id.replace('/', '-')}-{random_id}")
-            if not os.path.exists(tmp_dir):
-                os.makedirs(tmp_dir)
-
-            os.chdir(tmp_dir)
-            open(os.path.join(tmp_dir, "Main.java"), 'w').write(sample["test_code"])
+            open(os.path.join(tmp_dir, "Main.java"), 'w').write(code)
             res = "failed: unknown error"
             compile_returncode = -1
             for _ in range(5):
@@ -349,36 +329,37 @@ def check_correctness(
             if compile_returncode != 0:
                 res = "failed: compilation error"
             else:
-                exec_result = None
                 try:
-                    # WARNING
-                    # This program exists to execute untrusted model-generated code. Although
-                    # it is highly unlikely that model-generated code will do something overtly
-                    # malicious in response to this test suite, model-generated code may act
-                    # destructively due to a lack of model capability or alignment.
-                    # Users are strongly encouraged to sandbox this evaluation suite so that it
-                    # does not perform destructive actions on their host or network.
-                    # Once you have read this disclaimer and taken appropriate precautions,
-                    # uncomment the following line and proceed at your own risk:
-                    exec_result = subprocess.run([f'java', '-cp', tmp_dir, 'Main'], timeout=timeout,
-                                                 capture_output=True)
-                    if exec_result.returncode == 0:
-                        res = "passed"
-                    elif exec_result.returncode == 1:
-                        if "AssertionError" in exec_result.stderr.decode('unicode-escape'):
-                            res = "failed: wrong answer"
-                        else:
-                            res = f"failed: {exec_result.stderr.decode()}"
-                    try:
-                        print(exec_result.stdout.decode())
-                    except:
-                        print("decode error")
-                except subprocess.TimeoutExpired as e:
+                    with time_limit(timeout):
+                        # WARNING
+                        # This program exists to execute untrusted model-generated code. Although
+                        # it is highly unlikely that model-generated code will do something overtly
+                        # malicious in response to this test suite, model-generated code may act
+                        # destructively due to a lack of model capability or alignment.
+                        # Users are strongly encouraged to sandbox this evaluation suite so that it
+                        # does not perform destructive actions on their host or network.
+                        # Once you have read this disclaimer and taken appropriate precautions,
+                        # uncomment the following line and proceed at your own risk:
+                        failed = False
+                        for i, tc in enumerate(testcases):
+                            tc_input, _ = tc
+                            progress = subprocess.Popen([f'java', '-cp', tmp_dir, 'Main'], stdin=subprocess.PIPE,
+                                                        stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                            out, err = progress.communicate(input=tc_input)
+                            if len(err) == 0:
+                                print(f'\n<TESTCASE OUTPUT {i}>\n{out.strip()}\n</TESTCASE OUTPUT {i}>\n')
+                            elif not failed:
+                                result.append(f"failed: {err}")
+                                failed = True
+                            if len(err) > 0:
+                                print(f'\n<TESTCASE ERROR {i}>\n{err.strip()}\n</TESTCASE ERROR {i}>\n')
+                        if not failed:
+                            result.append("passed")
+                except TimeoutException:
                     print("time out")
-                    res = "time out"
+                    result.append("time out")
                 except BaseException as e:
-                    res = f"failed: {e}"
-            result.append(res)
+                    result.append(f"failed: {e}")
 
             shutil.rmtree(tmp_dir)
 
@@ -398,8 +379,7 @@ def check_correctness(
         "task_id": task_id,
         "completion_id": completion_id,
         "test_code": sample["test_code"],
-        "prompt": sample["prompt"],
-        "completion": sample["completion"],
+        "completion": sample["test_code"],
         "result": result[0],
         "passed": result[0] == "passed",
         "finish": -1 if "finish" not in sample else sample["finish"],
