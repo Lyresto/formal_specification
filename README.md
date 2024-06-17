@@ -1,7 +1,5 @@
 # 形式化规约优化生成代码
 
-> 目前仅可用于HumanEval(-X)
-
 - case：一些调试用实例（均针对pluck问题生成）
 - conversation：chatgpt的对话记录文件（运行时生成）
     - code：生成和优化代码时的对话
@@ -36,3 +34,5 @@
 2.  ```shell
     docker pull rishubi/codegeex:latest
     ```
+
+在<a href='https://huggingface.co/datasets/deepmind/code_contests/blob/main/data/test-00000-of-00001-9c49eeff30aacaa8.parquet'>这里</a>下载code_contests测试集并将其重命名为testset.parquet，放在data/code_contests文件夹下

@@ -21,3 +21,4 @@ humaneval-x/codegeex/benchmark/*
 !humaneval-x/codegeex/benchmark/execution*.py
 *.md
 !README.md
+data/code_contests/testset.parquet
