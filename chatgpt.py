@@ -31,10 +31,10 @@ class Conversation:
                 msg.append(self.messages[idx])
         self.messages.append({"role": "user", "content": prompt})
         msg.append(self.messages[-1])
-        if(self.model=="gpt-3.5-turbo"):
+        if self.model == "gpt-3.5-turbo":
             resp = call_gpt(msg, self.temp, self.model)
         else:
-            resp = call_deepseek_coder(msg,self.temp,self.model)
+            resp = call_deepseek_coder(msg, self.temp, self.model)
         self.messages.append({"role": "assistant", "content": resp})
         if len(self.messages) > 20:
             self.messages = self.messages[1:]
@@ -64,6 +64,7 @@ def call_gpt(message, temp=0.8, model=config["model"]):
             if max_call == 0:
                 send_email(f'GPT连续调用失败, model={model}, time={datetime.now()}, error={e}')
             time.sleep(2)
+    print('[INFO] get response!')
     return response['choices'][0]['message']['content']
 
 
@@ -99,6 +100,7 @@ def call_deepseek_coder(messages, temp=0.8,
             time.sleep(2)
 
     return response
+
 
 def redirect_save_path(save_path):
     if save_path is None:
