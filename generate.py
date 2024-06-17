@@ -207,7 +207,12 @@ def get_solution(idx, info, specification, generate_testcases):
             break
         code = conversation.chat(code_prompt_for_iteration(param_names, judge_result), [0, -1])
     best_code = max(codes, key=lambda x: x[1])
-    return best_code
+    return {
+        "generation": best_code[0],
+        "pass_rate": best_code[1],
+        "generation_times": count,
+        "initial_pass_rate": codes[0][1]
+    }
 
 
 def main():
@@ -216,8 +221,8 @@ def main():
         if item[task_key] in completions:
             log('skip')
             continue
-        if item_idx < 1:
-            continue
+        if item_idx > 0:
+            break
         # if not item["task_id"].startswith('Java'):
         #     continue
         # if int(item["task_id"].split('/')[1]) >= 3:
@@ -243,13 +248,13 @@ def main():
         log("filtered testcases:", filtered_testcases)
         final_testcases = remove_duplicate_testcase(filtered_testcases + standard_testcases)
 
-        best_code, ps_rate = get_solution(item_idx, info, final_specification, final_testcases)
-        log('pass rate =', ps_rate)
+        solution_info = get_solution(item_idx, info, final_specification, final_testcases)
+        log('pass rate =', solution_info["pass_rate"])
 
         with open(result_path, 'a') as result_file:
-            result_file.write(
-                f'{json.dumps({"task_id": info["task_id"], "completion": best_code, "pass_rate":ps_rate})}\n'
-            )
+            generation_result = {"task_id": info["task_id"]}
+            generation_result.update(solution_info)
+            result_file.write(f'{json.dumps(generation_result)}\n')
 
 
 if __name__ == '__main__':

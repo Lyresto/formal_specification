@@ -1,3 +1,4 @@
+import ast
 import copy
 import random
 import re
@@ -17,13 +18,21 @@ def generate_improper_testcases(case_in, case_out):
     case_out = copy.copy(case_out)
     while (case_in, case_out) in standard_testcases:
         for __i in range(len(case_in)):
-            case_in[__i] = randomly_modify_single(case_in[__i], steps=get_step_num())
+            case_in[__i] = filter_empty(randomly_modify_single(case_in[__i], steps=get_step_num()))
         for __i in range(len(case_out)):
-            case_out[__i] = randomly_modify_single(case_out[__i], steps=get_step_num())
+            case_out[__i] = filter_empty(randomly_modify_single(case_out[__i], steps=get_step_num()))
     return case_in, case_out
 
 
-printable_ch = ['\t', '\r', '\n', *[chr(ch) for ch in range(32, 127)]]
+def filter_empty(var):
+    var = list(filter(lambda x: not isinstance(x, list) or len(x) > 0, var))
+    for i, it in enumerate(var):
+        if isinstance(it, list):
+            var[i] = list(filter(lambda x: x != '', it))
+    return var
+
+
+printable_ch = [chr(ch) for ch in range(32, 127)]
 base_data = [0, 0.0, "", False, None]
 
 
@@ -47,9 +56,6 @@ def randomly_modify_single(var: Any, is_character=False, steps=1):
         return var
     if var is None:
         return 0
-    else:
-        if random.randint(0, int(1 / none_rate) - 1) == 0:
-            return None
     if isinstance(var, str):
         if len(var) == 1 and is_character:
             new_ch_idx = random.randint(0, len(printable_ch) - 2)
@@ -185,9 +191,35 @@ def validate_test_cases(case_in, case_out):
         return 0, f"{e}"
 
 
+def parse_terminal_io(io: str):
+    if not isinstance(io, str):
+        return io
+    parsed_io = []
+
+    def __convert_str_2_var(s):
+        try:
+            return ast.literal_eval(s)
+        except ValueError:
+            return s
+        except SyntaxError:
+            return s
+
+    for line in io.split('\n'):
+        if len(line.strip()) == 0:
+            continue
+        parsed_io.append(list(map(__convert_str_2_var, filter(lambda s: len(s) > 0, line.split(' ')))))
+    return parsed_io
+
+
+def to_terminal_io(io: list[list[Any]]):
+    try:
+        return '\n'.join(' '.join(str(elem) for elem in line) for line in io)
+    except TypeError:
+        return to_terminal_io([io])
+
+
 if __name__ == '__main__':
     generate_num_per_testcase = 10000
-    none_rate = 0.02
     empty_rate = 0.1
     keep_rate = 0.2
     max_step = 4
@@ -201,7 +233,7 @@ if __name__ == '__main__':
     if len(standard_testcases) == 0:
         print([1.0, 1.0, [], []])
     for testcase in standard_testcases:
-        result, message = validate_test_cases(*testcase)
+        result, message = validate_test_cases([to_terminal_io(testcase[0][0])], [to_terminal_io(testcase[1][0])])
         if result == 0:
             proper_testcase_error_message.append((*testcase, message))
         pass_num_proper += result
@@ -210,6 +242,7 @@ if __name__ == '__main__':
             if improper_testcase[0] != testcase[0]:
                 different_case_in_cnt += 1
             case_out_set.add(str(improper_testcase[1]))
+            improper_testcase = ([to_terminal_io(improper_testcase[0][0])], [to_terminal_io(improper_testcase[1][0])])
             result, _ = validate_test_cases(*improper_testcase)
             if result == 1 and improper_testcase not in improper_testcase_pass_spec:
                 improper_testcase_pass_spec.append(improper_testcase)
@@ -217,7 +250,7 @@ if __name__ == '__main__':
     collision_rate = different_case_in_cnt / (generate_num_per_testcase * len(standard_testcases)) / len(case_out_set)
     random_testcase_pass_rate = 1 - pass_num_improper / (generate_num_per_testcase * len(standard_testcases))
     print([pass_num_proper / len(standard_testcases),
-           min(1.0, random_testcase_pass_rate + 3 * collision_rate),
+           min(1.0, random_testcase_pass_rate + 1.5 * collision_rate),
            proper_testcase_error_message,
            random.sample(improper_testcase_pass_spec, min(5, len(improper_testcase_pass_spec)))
           if len(improper_testcase_pass_spec) > 0 else []])

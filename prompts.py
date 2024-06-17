@@ -113,13 +113,11 @@ Now, please provide the test cases for the following problem. Please do not dupl
 def specification_prompt(problem, param_names, refined_description="", example_testcase=None):
     if example_testcase is not None and dataset == 'code_contests':
         example_testcase_prompt = (
-            f'# An example case_in: {example_testcase[0][0]}',
-            f'# An example case_in: {example_testcase[0][0]} and case_out: {example_testcase[1][0]}'
+            f'# An example case_in: "{to_terminal_io(example_testcase[0][0], True)}"',
+            f'# An example case_in: "{to_terminal_io(example_testcase[0][0], True)}" and case_out: "{to_terminal_io(example_testcase[1][0], True)}"'
         )
-        extra_note = 'Note: case_in and case_out are BOTH 2D lists!'
     else:
         example_testcase_prompt = ('', '')
-        extra_note = ''
 
     # No need to provide testcase format for humaneval
     if len(refined_description) > 0:
@@ -144,19 +142,20 @@ def postconditions(l, output):
     elif dataset == 'code_contests':
         example_specification = """# Specification:
 def preconditions(case_in):
-    assert isinstance(case_in, list) and all(isinstance(line, list) for line in case_in), "Input is not a two-dimensional list."
-    assert len(case_in) >= 1, "Input should contains at least a line stands for the number of queries."
-    assert len(case_in[0]) == 1, "The first line should contains only one integer q which stands for the number of queries."
-    q = case_in[0][0]
-    assert isinstance(q, int), "The number of queries is not an integer."
+    assert isinstance(case_in, str), "Input is not a string."
+    lines = case_in.split('\\n')
+    assert len(lines) >= 1, "Input should contains at least a line stands for the number of queries."
+    assert lines[0].isdigit(), "The first line should only contains one integer q which stands for the number of queries."
+    q = int(lines[0])
     assert 1 <= q <= 500, "q is not within the given data range."
-    assert len(case_in) == q + 1, "The total number of input lines is not q+1."
-    queries = case_in[1:]
+    queries = lines[1:]
+    assert len(queries) == q, "The total number of queries is not equal to q."
     for idx, query in enumerate(queries):
-        assert len(query) == 3, f"The length of the {idx + 1}th query is not 3."
-        for element in query:
-            assert isinstance(element, int), f"The {idx + 1}th query contains non-integer elements: {element}."
-        l, r, d = tuple(query)
+        query_elems = query.split(' ')
+        assert len(query_elems) == 3, f"The length of the {idx + 1}th query is not 3."
+        for element in query_elems:
+            assert element.isdigit(), f"The {idx + 1}th query contains non-integer elements: {element}."
+        l, r, d = tuple(map(int, query_elems))
         assert l <= r, f"l of the {idx + 1}th query is not less than or equal to r."
         assert l >= 1, f"l of the {idx + 1}th query is not within the given data range."
         assert r <= 1e9, f"r of the {idx + 1}th query is not within the given data range."
@@ -164,22 +163,20 @@ def preconditions(case_in):
 
 
 def postconditions(case_in, case_out):
-    assert isinstance(case_out, list) and all(isinstance(query, list) for query in case_out), "Output is not a two-dimensional list."
-    q = case_in[0][0]
-    assert len(case_out) == q, "The total number of output lines is not q."
-    for idx, query_result in enumerate(case_out):
-        assert isinstance(query_result, list), f"The result of the {idx + 1}th query is not a list."
-        assert len(query_result) == 1, f"The result of the {idx + 1}th query is not a single integer."
-        x = query_result[0]
-        assert isinstance(x, int), f"Result x of the {idx + 1}th query is not an integer."
-        l, r, d = tuple(case_in[idx + 1])
+    assert isinstance(case_out, str), "Output is not a string."
+    case_in_lines = case_in.split('\\n')
+    q = int(case_in_lines[0])
+    case_out_lines = case_out.split('\\n')
+    assert len(case_out_lines) == q, "The total number of output lines is not q."
+    for idx, query_result in enumerate(case_out_lines):
+        assert query_result.isdigit(), f"The result x of the {idx + 1}th query is not a single integer."
+        x = int(query_result)
+        l, r, d = tuple(map(int, case_in_lines[idx + 1].split(' ')))
         assert x > 0, f"Result x of the {idx + 1}th query is not a positive integer."
         assert x % d == 0, f"Result x of the {idx + 1}th query is not a multiple of d."
         assert not (l <= x <= r), f"Result x of the {idx + 1}th query is within the range [l, r]."
         if x != d:
             assert l <= d <= r and l <= (x - d) <= r, f"Result x of the {idx + 1}th query is not the minimum positive integer that meets the requirements."
-
-case_in and case_out are both 2D lists. Each element list in the 2D lists corresponds to an input/output line, and each element in the element lists corresponds to a string/number separated by a space in an input/output line. For example, the example IO in the problem description can be represented as: ([[5], [2, 4, 2], [10, 4], [10, 1], [2, 3], [6, 5]], [[6], [4], [1], [3], [10]])
 """
     else:
         raise NotImplementedError()
@@ -201,8 +198,6 @@ def preconditions({', '.join(param_names)}):
 {example_testcase_prompt[1]}
 def postconditions({', '.join(param_names)}, {get_output_name()}):
     # TODO: Fill in postconditions
-
-{extra_note}
 """
 
 
@@ -286,16 +281,16 @@ def code_prompt_for_iteration(param_names, info):
                 case_out[0] = f'"{case_out[0]}"'
             if isinstance(code_out[0], str):
                 code_out[0] = f'"{code_out[0]}"'
-            if code_out is None:
+            if code_out[0] is None:
                 msg_item += "the code encountered errors during compilation or runtime, resulting in the inability to obtain any return values."
             else:
                 msg_item += f"the expected return value is: {case_out[0]}, but the return value obtained by running the code is: {code_out[0]}, and the error in this output is: {msg}"
         elif dataset == 'code_contests':
-            msg_item = f"\nWhen the input is\n{to_terminal_io(case_in[0])}\n"
-            if code_out is None:
+            msg_item = f"\nWhen the input is\n{case_in[0]}\n"
+            if code_out[0] is None:
                 msg_item += "The code encountered errors during compilation or runtime, resulting in the inability to obtain any return values."
             else:
-                msg_item += f"the expected output is: {to_terminal_io(case_out[0])}, but the return value obtained by running the code is: {to_terminal_io(code_out[0])}, and the error in this output is: {msg}"
+                msg_item += f"The expected output is\n{case_out[0]}\nBut the output obtained by running the code is\n{code_out[0]}\nAnd the error in this output is: {msg}"
         else:
             raise NotImplementedError()
 
