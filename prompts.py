@@ -34,7 +34,7 @@ Now, please provide the test cases for the following problem. Please do not dupl
 """
 
 
-def specification_prompt(problem, refined_description=""):
+def specification_prompt(param_names,problem, refined_description=""):
     # No need to provide testcase format for humaneval
     if len(refined_description) > 0:
         problem = f"""{problem}
@@ -44,7 +44,7 @@ The following is a refined description of the problem:
 {refined_description}
 """
 
-    return f"""I want you to act as a python programmer. Given a problem, you need to generate two specification functions: `preconditions(caseIn)`, which checks whether the input (caseIn) satisfies certain constraints about the requeriement, and `postconditions(caseIn, caseOut)` checks the functional relationships between the test inputs (caseIn) and outputs (caseOut) to ensure compliance with the requirements. Please thoroughly assess the correctness of the test cases (caseIn and caseOut) from various perspectives, including but not limited to formal correctness, functional correctness, logical correctness, etc. In the event that an error is encountered during the evaluation, please print the corresponding test case along with a specific error message. Please also generate as many detailed comments as possible.
+    return f"""I want you to act as a python programmer. Given a problem, you need to generate two specification functions: `preconditions`, which checks whether the input satisfies certain constraints about the requeriement, and `postconditions` checks the functional relationships between the test inputs and outputs to ensure compliance with the requirements. Please thoroughly assess the correctness of the test cases (Inputs and Outputs) from various perspectives, including but not limited to formal correctness, functional correctness, logical correctness, etc. In the event that an error is encountered during the evaluation, please print the corresponding test case along with a specific error message. Please also generate as many detailed comments as possible.
 Here is an example:
 
 # Problem:
@@ -67,12 +67,17 @@ def postconditions(l, output):
     num_less = sum([1 for i in l if i <= output])
     assert num_greater == num_less, "Counts of elements greater than or equal to 'output' and less than or equal to 'output' are not equal."
 
-Now, please provide the specifications for the following problem. Your output should only include two functions: "preconditions(caseIn)" and "postconditions(caseIn, caseOut)". You do not need to generate test cases. Only provide the code.
+Now, please provide the specifications for the following problem. Your output should only include two functions: "preconditions" and "postconditions". You do not need to generate test cases. Only provide the code.
 
 # Problem:
 {problem}
 
 # Specification:
+def preconditions({', '.join(param_names)}):
+    # TODO: Fill in preconditions
+
+def postconditions({', '.join(param_names)}, output):
+    # TODO: Fill in postconditions
 """
 
 
@@ -125,7 +130,7 @@ def median(l):
     \"\"\"
 
 # Refined requirements:
-
+def median(l):
 ## Problem description:
 This problem requires writing a function to determine the median of a given list of numbers. The median is the middle number in a sorted, ascending or descending, list of numbers and can be more descriptive of that data set than the average. If the list has an odd number of elements, the median is the middle element. If the list has an even number of elements, the median is the average of the two middle elements.
 

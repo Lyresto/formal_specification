@@ -108,7 +108,7 @@ def get_specifications(idx, prompt, standard_testcase, param_names):
                         refined_description = refine_conversation.messages[-1]["content"]
                     else:
                         refined_description = refine_conversation.chat(requirement_refine_prompt(prompt))
-                specification = conversation.chat(specification_prompt(prompt, refined_description))
+                specification = conversation.chat(specification_prompt(param_names,prompt, refined_description))
 
             while True:
                 specification = extract_specification(specification)

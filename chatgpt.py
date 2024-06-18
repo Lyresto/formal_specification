@@ -65,7 +65,7 @@ def call_gpt(message, temp=0.8, model=config["model"]):
 
 
 def call_deepseek_coder(messages, temp=0.8,
-                        model="https://deepseek-ai-deepseek-coder-7b-instruct.hf.space/--replicas/esnsf/"):
+                        model="https://deepseek-ai-deepseek-coder-7b-instruct.hf.space/--replicas/pzzcy/"):
     print(f'[INFO] call deepseek coder, temp = {temp}, model = {model}')
     if type(messages) == list and len(messages) > 0 and isinstance(messages[0], dict):
         message = messages[0]['content']
