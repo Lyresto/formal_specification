@@ -17,5 +17,8 @@ humaneval-x/*
 humaneval-x/codegeex/*
 !humaneval-x/codegeex/benchmark
 humaneval-x/codegeex/benchmark/*
-!humaneval-x/codegeex/benchmark/evaluate_humaneval_x.py
-!humaneval-x/codegeex/benchmark/execution.py
+!humaneval-x/codegeex/benchmark/evaluate_*.py
+!humaneval-x/codegeex/benchmark/execution*.py
+*.md
+!README.md
+data/code_contests/testset.parquet

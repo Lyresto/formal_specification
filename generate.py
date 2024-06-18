@@ -1,5 +1,6 @@
 import json
 import os.path
+import pandas as pd
 
 from chatgpt import start_conversation, load_intermediate_results
 from config import config
@@ -108,7 +109,14 @@ def get_specifications(idx, prompt, standard_testcase, param_names):
                         refined_description = refine_conversation.messages[-1]["content"]
                     else:
                         refined_description = refine_conversation.chat(requirement_refine_prompt(prompt))
+<<<<<<< HEAD
                 specification = conversation.chat(specification_prompt(param_names,prompt, refined_description))
+=======
+                specification = conversation.chat(
+                    specification_prompt(prompt, param_names, refined_description,
+                                         standard_testcase[0] if len(standard_testcase) > 0 else None)
+                )
+>>>>>>> 632080a9d097204522aec17712d16e1d06845213
 
             while True:
                 specification = extract_specification(specification)
@@ -203,15 +211,22 @@ def get_solution(idx, info, specification, generate_testcases):
             break
         code = conversation.chat(code_prompt_for_iteration(param_names, judge_result), [0, -1])
     best_code = max(codes, key=lambda x: x[1])
-    return best_code
+    return {
+        "generation": best_code[0],
+        "pass_rate": best_code[1],
+        "generation_times": count,
+        "initial_pass_rate": codes[0][1]
+    }
 
 
 def main():
     global item_idx
     for item_idx, item in enumerate(data):
-        if item["task_id"] in completions:
+        if item[task_key] in completions:
             log('skip')
             continue
+        if item_idx > 0:
+            break
         # if not item["task_id"].startswith('Java'):
         #     continue
         # if int(item["task_id"].split('/')[1]) >= 3:
@@ -237,24 +252,43 @@ def main():
         log("filtered testcases:", filtered_testcases)
         final_testcases = remove_duplicate_testcase(filtered_testcases + standard_testcases)
 
-        best_code, ps_rate = get_solution(item_idx, info, final_specification, final_testcases)
-        log('pass rate =', ps_rate)
+        solution_info = get_solution(item_idx, info, final_specification, final_testcases)
+        log('pass rate =', solution_info["pass_rate"])
 
         with open(result_path, 'a') as result_file:
+<<<<<<< HEAD
             result_file.write(f'{json.dumps({"task_id": info["task_id"], "completion": best_code,"pass_rate":ps_rate})}\n')
+=======
+            generation_result = {"task_id": info["task_id"]}
+            generation_result.update(solution_info)
+            result_file.write(f'{json.dumps(generation_result)}\n')
+>>>>>>> 632080a9d097204522aec17712d16e1d06845213
 
 
 if __name__ == '__main__':
     source_data_path = config["data_path"]
-    middle_path = f'{config["dataset"]}/{config["model"]}'
-    result_path = f'result/{config["dataset"]}_{config["model"]}.jsonl'
+    dataset = config["dataset"]
+    model = config["model"]
+
     print("Config:\n", json.dumps(config, indent=4))
 
-    data = load_jsonl(source_data_path)
+    if dataset in ['humaneval', 'humaneval-x']:
+        data = load_jsonl(source_data_path)
+        task_key = "task_id"
+        middle_path = f'{dataset}/{model}'
+        result_path = f'result/{dataset}_{model}.jsonl'
+    elif dataset == 'code_contests':
+        data = pd.read_parquet(source_data_path).to_dict(orient='records')
+        task_key = "name"
+        language = config["language_for_code_contests"]
+        middle_path = f'{dataset}/{model}/{language}'
+        result_path = f'result/{dataset}_{model}_{language}.jsonl'
+    else:
+        raise NotImplementedError()
     completions = set()
     if os.path.exists(result_path):
         with open(result_path) as f:
             for line in f:
                 if line.strip() != "":
-                    completions.add(json.loads(line)["task_id"])
+                    completions.add(json.loads(line)[task_key])
     main()

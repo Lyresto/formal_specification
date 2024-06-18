@@ -1,4 +1,5 @@
 import ast
+import copy
 import json
 import os
 import re
@@ -6,8 +7,12 @@ import subprocess
 import tokenize
 import warnings
 from io import BytesIO
+from typing import Any
+
 from config import config
 from template.test_code import package_test_code
+
+dataset = config["dataset"]
 
 
 def parse_tokens(__code: str):
@@ -53,32 +58,44 @@ def check_func_param_and_return(__code, __entrypoint):
     return len(__params) > 1, False, __params
 
 
+def initial_prompt_for_code_contests(description, language):
+    prompt = description + f"\n\nPlease use {language} language to solve this problem."
+    return prompt
+
+
 def get_data_info(idx, item):
-    dataset = config["dataset"]
     if dataset in ["humaneval", "humaneval-x"]:
         task_id = item["task_id"]
-        python_prompt = prompt = item["prompt"]
-        language = "python"
+        prompt = item["prompt"]
         if dataset == "humaneval-x":
             language = task_id.split('/')[0].lower()
             if language == "rust":
-                prompt += item["declaration"]
+                prompt = item["prompt"] + item["declaration"]
             info = parse_func_info_for_humaneval(item["declaration"], language)
             item = load_jsonl('data/humaneval.jsonl')[idx % 164]
             python_prompt = item["prompt"]
         else:
+            language = "python"
+            python_prompt = prompt
             info = parse_func_info_for_humaneval(
                 load_jsonl('data/humaneval-x.jsonl')[656 + idx]["declaration"], language)
         standard_testcases = parse_standard_testcase(item["example_IO"])
-        info.update({
-            "task_id": task_id,
-            "language": language,
-            "prompt": prompt,
-            "python_prompt": python_prompt,
-            "standard_testcases": standard_testcases
-        })
+    elif dataset == 'code_contests':
+        info = {"param_names": ["case_in"]}
+        task_id = item["name"]
+        language = config["language_for_code_contests"]
+        python_prompt = item["description"]
+        prompt = initial_prompt_for_code_contests(item["description"], language)
+        standard_testcases = parse_standard_testcase(item["public_tests"])
     else:
         raise NotImplementedError()
+    info.update({
+        "task_id": task_id,
+        "language": language,
+        "prompt": prompt,
+        "python_prompt": python_prompt,
+        "standard_testcases": standard_testcases
+    })
     return info
 
 
@@ -197,13 +214,21 @@ def run_template(__testcases, __specification, __testcase_type, __file_name, __s
 
 
 def check_specification(__testcases, __specification):
+    suffix = '_code_contests' if dataset == 'code_contests' else ''
     try:
-        return run_template(__testcases, __specification, "standard", "specification_check")
+        return run_template(__testcases, __specification, "standard", f"specification_check{suffix}")
     except RuntimeError as e:
         return [0.0, 0.0, [(*__tc, f'{e}') for __tc in __testcases], []]
 
 
 def check_generated_testcase(__testcases, __specification):
+    __testcases = copy.copy(__testcases)
+    if dataset == 'code_contests':
+        for i, __tc in enumerate(__testcases):
+            __testcases[i] = (
+                [to_terminal_io(__tc[0][0])],
+                [to_terminal_io(__tc[1][0])]
+            )
     try:
         return run_template(__testcases, __specification, "generated", "generated_testcase_check")
     except RuntimeError:
@@ -212,7 +237,11 @@ def check_generated_testcase(__testcases, __specification):
 
 def parse_testcase(__testcases):
     try:
-        return run_template(extract_testcase(__testcases), None, "generated", "testcase_parse")
+        parsed_testcases = run_template(extract_testcase(__testcases), None, "generated", "testcase_parse")
+        if dataset == 'code_contests':
+            for i, __testcase in enumerate(parsed_testcases):
+                parsed_testcases[i] = ([__testcase[0]], [__testcase[1]])
+        return parsed_testcases
     except RuntimeError:
         return []
 
@@ -243,43 +272,52 @@ def judge_code(__testcases, __specification, __solution):
 
 
 def extract_completed_code(__raw_code, __info):
-    func_sign_prefix = __info["func_sign"].split('(')[0].strip()
-    filtered_lines = []
-    for line in __raw_code.split('\n')[::-1]:
-        if line.strip().startswith(func_sign_prefix):
-            break
-        filtered_lines.append(line)
-    filtered_lines = filtered_lines[::-1]
-    if __info["language"] == 'python':
-        code = __info["func_sign"] + '\n' + '\n'.join(filtered_lines)
-        completed_code_with_func_sign = extract_function(code, __info["entrypoint"], True)
-        return '\n'.join(completed_code_with_func_sign.split('\n')[1:])
-    else:
-        left_braces = 1
-        right_braces = 0
-        final_lines = []
-        for line in filtered_lines:
-            final_lines.append(line)
-            left_braces += line.count('{')
-            right_braces += line.count('}')
-            if left_braces == right_braces:
+    if dataset in ['humaneval', 'humaneval-x']:
+        func_sign_prefix = __info["func_sign"].split('(')[0].strip()
+        filtered_lines = []
+        for line in __raw_code.split('\n')[::-1]:
+            if line.strip().startswith(func_sign_prefix):
                 break
-        if __info["language"] in ['java']:
-            final_lines.append('}')
-        return '\n'.join(final_lines)
+            filtered_lines.append(line)
+        filtered_lines = filtered_lines[::-1]
+        if __info["language"] == 'python':
+            code = __info["func_sign"] + '\n' + '\n'.join(filtered_lines)
+            completed_code_with_func_sign = extract_function(code, __info["entrypoint"], True)
+            return '\n'.join(completed_code_with_func_sign.split('\n')[1:])
+        else:
+            left_braces = 1
+            right_braces = 0
+            final_lines = []
+            for line in filtered_lines:
+                final_lines.append(line)
+                left_braces += line.count('{')
+                right_braces += line.count('}')
+                if left_braces == right_braces:
+                    break
+            if __info["language"] in ['java']:
+                final_lines.append('}')
+            return '\n'.join(final_lines)
+    elif dataset == 'code_contests':
+        if '```' in __raw_code:
+            return re.findall('```.*?\n(.+?)```', __raw_code, flags=re.DOTALL)[0]
+        return __raw_code
 
 
 def judge_code_v2(__testcases, __specification, __raw_code, __info):
-    if config["dataset"] in ["humaneval", "humaneval-x"]:
+    docker_base_dir = "/workspace/CodeGeeX"
+    cur_path = os.path.abspath('.').replace('\\', '/').replace(':', '')
+    cur_path = '/' + cur_path[0].lower() + cur_path[1:]
+    language = 'js' if __info["language"] == 'javascript' else __info["language"]
+    solution_outputs: list = [None] * len(__testcases)
+    if dataset in ["humaneval", "humaneval-x"]:
+        if dataset == "humaneval":
+            task_id = f'Python/{__info["task_id"].split("/")[1]}'
+        else:
+            task_id = __info["task_id"]
         completed_code = extract_completed_code(__raw_code, __info)
-        solution_outputs = [None] * len(__testcases)
         test_code = package_test_code(__testcases, __info)
         with open('result/tmp/tmp.jsonl', 'w+') as f:
-            json.dump({"task_id": __info["task_id"], "completion": completed_code, "test_code": test_code}, f)
-        docker_base_dir = "/workspace/CodeGeeX"
-        cur_path = os.path.abspath('.').replace('\\', '/').replace(':', '')
-        cur_path = '/' + cur_path[0].lower() + cur_path[1:]
-        language = 'js' if __info["language"] == 'javascript' else __info["language"]
+            json.dump({"task_id": task_id, "completion": completed_code, "test_code": test_code}, f)
         cmd = ["docker", "run", "--gpus", "all",
                "-v", f"{cur_path}/result/tmp/tmp.jsonl:{docker_base_dir}/data.jsonl",
                "-v", f"{cur_path}/humaneval-x/codegeex/benchmark/execution.py:"
@@ -305,9 +343,34 @@ def judge_code_v2(__testcases, __specification, __raw_code, __info):
                 else:
                     break
         triphase_testcases = [(*tc, [sol_out]) for tc, sol_out in zip(__testcases, solution_outputs)]
-        return run_template(triphase_testcases, __specification, "triphase", "code_judge_2"), completed_code
+    elif dataset == 'code_contests':
+        testcases_str = []
+        for tc_input, tc_output in __testcases:
+            testcases_str.append([to_terminal_io(tc_input[0]), to_terminal_io(tc_output[0])])
+        task_id = f'{__info["language"]}/{__info["task_id"]}'
+        completed_code = extract_completed_code(__raw_code, __info)
+        with open('result/tmp/tmp.jsonl', 'w+') as f:
+            json.dump({"task_id": task_id, "test_code": completed_code, "testcases": testcases_str}, f)
+        cmd = ["docker", "run", "--gpus", "all",
+               "-v", f"{cur_path}/result/tmp/tmp.jsonl:{docker_base_dir}/data.jsonl",
+               "-v", f"{cur_path}/humaneval-x/codegeex/benchmark/execution_code_contests.py:"
+                     f"{docker_base_dir}/codegeex/benchmark/execution.py",
+               "-v", f"{cur_path}/humaneval-x/codegeex/benchmark/evaluate_code_contests.py:"
+                     f"{docker_base_dir}/codegeex/benchmark/humaneval-x/evaluate_humaneval_x.py",
+               "rishubi/codegeex", "bash", "-c",
+               f'{docker_base_dir}/scripts/evaluate_humaneval_x.sh {docker_base_dir}/data.jsonl {language} 4']
+        process = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                   stderr=subprocess.PIPE, shell=True, text=True)
+        out, err = process.communicate()
+        for idx in range(len(__testcases)):
+            matches = re.findall(f'<TESTCASE OUTPUT {idx}>\n(.*?)\n</TESTCASE OUTPUT {idx}>', out, flags=re.DOTALL)
+            assert len(matches) <= 1
+            if len(matches) == 1:
+                solution_outputs[idx] = parse_terminal_io(matches[0].strip())
+        triphase_testcases = [([tc[0]], [tc[1]], [to_terminal_io(sol_out)]) for tc, sol_out in zip(testcases_str, solution_outputs)]
     else:
         raise NotImplementedError()
+    return run_template(triphase_testcases, __specification, "triphase", "code_judge_2"), completed_code
 
 
 def package_solution(__prompt, __code, __entrypoint):
@@ -393,14 +456,49 @@ def extract_specification(__content):
 def parse_standard_testcase(__testcase):
     standard_testcase = []
     for tc_input, tc_output in zip(__testcase["input"], __testcase["output"]):
-        standard_testcase.append((
-            ast.literal_eval(f'[{tc_input}]'),
-            ast.literal_eval(f'[{tc_output}]')
-        ))
+        if dataset in ['humaneval', 'humaneval-x']:
+            standard_testcase.append((
+                ast.literal_eval(f'[{tc_input}]'),
+                ast.literal_eval(f'[{tc_output}]')
+            ))
+        elif dataset == 'code_contests':
+            standard_testcase.append((
+                [parse_terminal_io(tc_input)],
+                [parse_terminal_io(tc_output)]
+            ))
     return standard_testcase
 
 
+def parse_terminal_io(io: str):
+    parsed_io = []
+
+    def __convert_str_2_var(s):
+        try:
+            return ast.literal_eval(s)
+        except ValueError:
+            return s
+        except SyntaxError:
+            return s
+
+    for line in io.split('\n'):
+        if len(line.strip()) == 0:
+            continue
+        parsed_io.append(list(map(__convert_str_2_var, filter(lambda s: len(s) > 0, line.split(' ')))))
+    return parsed_io
+
+
+def to_terminal_io(io: list[list[Any]], inline=False):
+    if io is None:
+        return None
+    if inline:
+        join_str = '\\n'
+    else:
+        join_str = '\n'
+    return join_str.join(' '.join(str(elem) for elem in line) for line in io)
+
+
 if __name__ == '__main__':
+    # print(to_terminal_io([[1, 2], ["qqq"]]))
     # print(parse_func_info_for_humaneval("fn max_fill(grid:Vec<Vec<i32>>, capacity:i32) -> i32{", "rust"))
     # print(ast.literal_eval("[([[1, 3, 5]], []),([[2, 4, 6]], [[2, 0]])]"))
     # exit(-1)

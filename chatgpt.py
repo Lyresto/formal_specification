@@ -31,7 +31,14 @@ class Conversation:
                 msg.append(self.messages[idx])
         self.messages.append({"role": "user", "content": prompt})
         msg.append(self.messages[-1])
+<<<<<<< HEAD
         resp = call_deepseek_coder(msg)
+=======
+        if self.model == "gpt-3.5-turbo":
+            resp = call_gpt(msg, self.temp, self.model)
+        else:
+            resp = call_deepseek_coder(msg, self.temp, self.model)
+>>>>>>> 632080a9d097204522aec17712d16e1d06845213
         self.messages.append({"role": "assistant", "content": resp})
         if len(self.messages) > 20:
             self.messages = self.messages[1:]
@@ -61,6 +68,7 @@ def call_gpt(message, temp=0.8, model=config["model"]):
             if max_call == 0:
                 send_email(f'GPT连续调用失败, model={model}, time={datetime.now()}, error={e}')
             time.sleep(2)
+    print('[INFO] get response!')
     return response['choices'][0]['message']['content']
 
 
@@ -97,6 +105,10 @@ def call_deepseek_coder(messages, temp=0.8,
 
     return response
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> 632080a9d097204522aec17712d16e1d06845213
 def redirect_save_path(save_path):
     if save_path is None:
         return None
@@ -106,6 +118,8 @@ def redirect_save_path(save_path):
     if paths[1] == 'humaneval-x' and (paths[3] != 'code' or (paths[3] == 'code' and item_idx // 164 == 4)):
         paths[1] = 'humaneval'
         paths[-1] = f'{item_idx % 164}{matches.group(2)}'
+    elif paths[1] == 'code_contests' and paths[4] != 'code':
+        paths[3] = 'python'
     return '/'.join(paths)
 
 
