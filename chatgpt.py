@@ -31,14 +31,10 @@ class Conversation:
                 msg.append(self.messages[idx])
         self.messages.append({"role": "user", "content": prompt})
         msg.append(self.messages[-1])
-<<<<<<< HEAD
-        resp = call_deepseek_coder(msg)
-=======
         if self.model == "gpt-3.5-turbo":
             resp = call_gpt(msg, self.temp, self.model)
         else:
             resp = call_deepseek_coder(msg, self.temp, self.model)
->>>>>>> 632080a9d097204522aec17712d16e1d06845213
         self.messages.append({"role": "assistant", "content": resp})
         if len(self.messages) > 20:
             self.messages = self.messages[1:]
@@ -105,10 +101,7 @@ def call_deepseek_coder(messages, temp=0.8,
 
     return response
 
-<<<<<<< HEAD
-=======
 
->>>>>>> 632080a9d097204522aec17712d16e1d06845213
 def redirect_save_path(save_path):
     if save_path is None:
         return None

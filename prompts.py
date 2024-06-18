@@ -110,9 +110,6 @@ Now, please provide the test cases for the following problem. Please do not dupl
 """
 
 
-<<<<<<< HEAD
-def specification_prompt(param_names,problem, refined_description=""):
-=======
 def specification_prompt(problem, param_names, refined_description="", example_testcase=None):
     if example_testcase is not None and dataset == 'code_contests':
         example_testcase_prompt = (
@@ -122,7 +119,6 @@ def specification_prompt(problem, param_names, refined_description="", example_t
     else:
         example_testcase_prompt = ('', '')
 
->>>>>>> 632080a9d097204522aec17712d16e1d06845213
     # No need to provide testcase format for humaneval
     if len(refined_description) > 0:
         problem = f"""{problem.strip()}
@@ -132,22 +128,7 @@ The following is a refined description of the problem:
 {refined_description.strip()}
 """
 
-<<<<<<< HEAD
-    return f"""I want you to act as a python programmer. Given a problem, you need to generate two specification functions: `preconditions`, which checks whether the input satisfies certain constraints about the requeriement, and `postconditions` checks the functional relationships between the test inputs and outputs to ensure compliance with the requirements. Please thoroughly assess the correctness of the test cases (Inputs and Outputs) from various perspectives, including but not limited to formal correctness, functional correctness, logical correctness, etc. In the event that an error is encountered during the evaluation, please print the corresponding test case along with a specific error message. Please also generate as many detailed comments as possible.
-Here is an example:
 
-# Problem:
-def median(l):
-    \"\"\"
-    Given a list l, return median of elements in the list. 
-    >>> median([3, 1, 2, 4, 5])
-    3
-    >>> median([-7, 4, 6, 100, 10, 20])
-    15.0
-    \"\"\"
-
-# Specification:
-=======
     if dataset in ['humaneval', 'humaneval-x']:
         example_specification = """# Specification:
 >>>>>>> 632080a9d097204522aec17712d16e1d06845213
