@@ -131,7 +131,7 @@ The following is a refined description of the problem:
 
     if dataset in ['humaneval', 'humaneval-x']:
         example_specification = """# Specification:
->>>>>>> 632080a9d097204522aec17712d16e1d06845213
+
 def preconditions(l):
     assert isinstance(l, list), "Input is not a list."
     assert all([isinstance(i, (int, float)) for i in l]), "There are elements in input that are not of type int or float."
@@ -163,8 +163,6 @@ def preconditions(case_in):
         assert r <= 1e9, f"r of the {idx + 1}th query is not within the given data range."
         assert 1e9 >= d >= 1, f"d of the {idx + 1}th query is not within the given data range."
 
-<<<<<<< HEAD
-=======
 
 def postconditions(case_in, case_out):
     assert isinstance(case_out, str), "Output is not a string."
@@ -189,26 +187,18 @@ def postconditions(case_in, case_out):
 Here is an example:
 {get_example_problem()}
 {example_specification}
->>>>>>> 632080a9d097204522aec17712d16e1d06845213
 Now, please provide the specifications for the following problem. Your output should only include two functions: "preconditions" and "postconditions". You do not need to generate test cases. Only provide the code.
 
 # Problem:
 {problem.strip()}
 
 # Specification:
-<<<<<<< HEAD
-def preconditions({', '.join(param_names)}):
-    # TODO: Fill in preconditions
-
-def postconditions({', '.join(param_names)}, output):
-=======
 {example_testcase_prompt[0]}
 def preconditions({', '.join(param_names)}):
     # TODO: Fill in preconditions
 
 {example_testcase_prompt[1]}
 def postconditions({', '.join(param_names)}, {get_output_name()}):
->>>>>>> 632080a9d097204522aec17712d16e1d06845213
     # TODO: Fill in postconditions
 """
 
@@ -252,19 +242,6 @@ def requirement_refine_prompt(problem):
     if dataset in ['humaneval', 'humaneval-x']:
         example_refined_requirement = """# Refined requirements:
 def median(l):
-<<<<<<< HEAD
-    \"\"\"
-    Given a list l, return median of elements in the list. 
-    >>> median([3, 1, 2, 4, 5])
-    3
-    >>> median([-7, 4, 6, 100, 10, 20])
-    15.0
-    \"\"\"
-
-# Refined requirements:
-def median(l):
-=======
->>>>>>> 632080a9d097204522aec17712d16e1d06845213
 ## Problem description:
 This problem requires writing a function to determine the median of a given list of numbers. The median is the middle number in a sorted, ascending or descending, list of numbers and can be more descriptive of that data set than the average. If the list has an odd number of elements, the median is the middle element. If the list has an even number of elements, the median is the average of the two middle elements.
 
