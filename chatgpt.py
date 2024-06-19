@@ -31,7 +31,7 @@ class Conversation:
                 msg.append(self.messages[idx])
         self.messages.append({"role": "user", "content": prompt})
         msg.append(self.messages[-1])
-        if self.model == "gpt-3.5-turbo":
+        if self.model.startswith("gpt"):
             resp = call_gpt(msg, self.temp, self.model)
         else:
             resp = call_deepseek_coder(msg, self.temp, self.model)

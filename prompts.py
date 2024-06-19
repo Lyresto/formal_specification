@@ -66,7 +66,22 @@ def testcase_prompt(problem, example_testcase):
     if dataset in ['humaneval', 'humaneval-x']:
         example_generated_testcase = """# Test case:
 test_cases = [
+    # basic function test cases
     ([[-10,4,6,1000,10,20]],[8.0]),
+    ([1,2,3,4,5],[3.0]),
+    ([[10, 2, 38, 23, 38, 23, 21]],[23.0]),
+    ([[4, 1, 2, 3]],[2.5]),
+    # special situation test cases
+    ([[1,1,1,1]],[1.0]),
+    ([[1]],[1.0]),
+    ([[-10, -20, -30, -40, -50]],[-30.0]),
+    # boundary and stress test cases
+    ([[i for i in range(1, 10001)]],[5000.5]),
+    ([[1] * 5000 + [2] * 5000],[1.5]),
+    # random test cases
+    ([[3, 1, 4, 1, 5, 9, 2, 6, 5, 3, 5]],[4.0]),
+    ([[15, 20, 35, 40, 50]],[35.0])
+    
 ]
     
 Each tuple in `test_cases` contains two parts: case_in and case_out, both of which are lists. Each element in the lists corresponds to a parameter/return value of the function. For example, the first example IO in the problem description can be represented as: ([[3, 1, 2, 4, 5]], [3])
@@ -95,7 +110,7 @@ Each tuple in `test_cases` contains two parts: case_in and case_out, both of whi
     else:
         raise NotImplementedError()
 
-    return f"""Given a question, you need to write several sets of testcases for checking the correctness of the code implementation about the functionality of the given question. Please do not duplicate the Example IO given in the question. You are required to generate at least 10 sets of test cases that comprehensively validate the implementation's functionality under various conditions, including but not limited to boundary test cases, functional correctness test cases, etc. The elements in each test case can only consist of two parts named 'caseIn' and 'caseOut'. Please also annotate each test case with detailed comments. Again, all you need to do and you can do is to return me only an array called test_cases consisting of caseIn and caseOut two parts.
+    return f"""Given a question, you need to write several CERTAINLY CORRECT testcases for checking the correctness of the code implementation about the functionality of the given question. Please do not duplicate the Example IO given in the question. You are required to generate 20 sets of absolutely correct test cases that comprehensively validate the implementation's functionality under various conditions, including 4 types for 5 pieces each: functional and logical correctness test cases ,special situation test cases, boundary and stress test cases and completely random data test cases. The elements in each test case can only consist of two parts named 'caseIn' and 'caseOut'. Please also annotate each test case with detailed comments. Again, all you need to do and you can do is to return me only an array called test_cases.
 Here is an example: 
 {get_example_problem()}
 {example_generated_testcase}
@@ -183,7 +198,7 @@ def postconditions(case_in, case_out):
     else:
         raise NotImplementedError()
 
-    return f"""I want you to act as a python programmer. Given a problem, you need to generate two specification functions: `preconditions`, which checks whether the input satisfies certain constraints about the requirement, and `postconditions` checks the functional relationships between the test inputs and outputs to ensure compliance with the requirements. Please thoroughly assess the correctness of the test cases (Inputs and Outputs) from various perspectives, including but not limited to formal correctness, functional correctness, logical correctness, etc. In the event that an error is encountered during the evaluation, please print the corresponding test case along with a specific error message. Please also generate as many detailed comments as possible.
+    return f"""I want you to act as a python programmer. Given a problem, you need to generate two specification functions: `preconditions` and `postconditions`. Please thoroughly assess the correctness of the test cases (Inputs and Outputs) from various perspectives, preconditions should check the correctness of the input form, including whether the data type and number are consistent with the requirements of the problem, etc. postconditions should check the data type and number of the output, and check whether the output meets all the conditions required. Note that this kind of check by specification here is not the realization of the problem requirements, but the use of relatively simple logic to check whether the output meets the expectation and whether it is inconsistent with the input or the problem requirements. In the event that an error is encountered during the evaluation, please print the corresponding test case along with a specific error message. Please also generate as many detailed comments as possible.
 Here is an example:
 {get_example_problem()}
 {example_specification}
@@ -195,11 +210,20 @@ Now, please provide the specifications for the following problem. Your output sh
 # Specification:
 {example_testcase_prompt[0]}
 def preconditions({', '.join(param_names)}):
-    # TODO: Fill in preconditions
+    #----------------you should ALWAYS begin with----------
+    assert isinstance(case_in, str), "Input is not a string."
+    case_in_lines = case_in.split('\\n')
+    #----------------end-----------------------------------
+    # TODO: Continue to fill in preconditions
 
 {example_testcase_prompt[1]}
 def postconditions({', '.join(param_names)}, {get_output_name()}):
-    # TODO: Fill in postconditions
+    #----------------you should ALWAYS begin with-------------
+    assert isinstance(case_out, str), "Output is not a string."
+    case_in_lines = case_in.split('\\n')
+    case_out_lines = case_out.split('\\n')
+    #----------------end-------------------------------------
+    # TODO: Continue to fill in postconditions
 """
 
 
@@ -253,6 +277,30 @@ The elements of the list can be negative or positive.
 ## Explanation of examples:
 For median([3, 1, 2, 4, 5]), the sorted list is [1, 2, 3, 4, 5]. The middle element is 3, so the output should be 3.
 For median([-7, 4, 6, 100, 10, 20]), the sorted list is [-7, 4, 6, 10, 20, 100]. The two middle elements are 6 and 10, and their average is (6 + 10) / 2 = 8.0, so the output should be 8.0.
+"""
+    elif dataset == 'code_contests':
+        example_refined_requirement ="""# Refined requirements:
+## Problem description
+You are given \( q \) queries, and each query consists of three integers: \( l_i \), \( r_i \), and \( d_i \). For each query, you need to find the smallest positive integer \( x_i \) such that \( x_i \) is divisible by \( d_i \) and does not lie within the segment \([l_i, r_i]\).
+Recall that a number x belongs to segment [l, r] if l \u2264 x \u2264 r.
+
+So you need to meet these significant requirements:
+1. x_i is not in the range \([l_i, r_i]\);
+2. x_i is divisible by d_i
+3. x_i is the smallest of all the numbers that satisfy this condition
+
+## Data restrictions:
+1 \u2264 q \u2264 500
+1 \u2264 l_i \u2264 r_i \u2264 10^9
+ 1 \u2264 d_i \u2264 10^9
+ l_i, r_i and d_i are integers
+ 
+## Explanation of examples:
+ For the first query, the smallest \( x_i \) is 6 because 6 is divisible by 2 and is not in the range [2, 4].
+- For the second query, the smallest \( x_i \) is 4 because 4 is divisible by 4 and is not in the range [5, 10].
+- For the third query, the smallest \( x_i \) is 1 because 1 is divisible by 1 and is not in the range [3, 10].
+- For the fourth query, the smallest \( x_i \) is 3 because 3 is divisible by 3 and is not in the range [1, 2].
+- For the fifth query, the smallest \( x_i \) is 10 because 10 is divisible by 5 and is not in the range [4, 6].
 """
     else:
         raise NotImplementedError()

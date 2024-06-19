@@ -183,7 +183,7 @@ def get_solution(idx, info, specification, generate_testcases):
     prompt = info["prompt"]
     param_names = info["param_names"]
 
-    max_generation = 10
+    max_generation = 5
     codes = []
     conversation = start_conversation(
         save_path=f'conversation/{middle_path}/code/{idx}.pkl', load_if_exist=True
@@ -222,8 +222,8 @@ def main():
         if item[task_key] in completions:
             log('skip')
             continue
-        if item_idx > 0:
-            break
+        # if item_idx > 0:
+            # break
         # if not item["task_id"].startswith('Java'):
         #     continue
         # if int(item["task_id"].split('/')[1]) >= 3:
@@ -253,7 +253,7 @@ def main():
         log('pass rate =', solution_info["pass_rate"])
 
         with open(result_path, 'a') as result_file:
-            generation_result = {"task_id": info["task_id"]}
+            generation_result = {task_key: info["task_id"]}
             generation_result.update(solution_info)
             result_file.write(f'{json.dumps(generation_result)}\n')
 
