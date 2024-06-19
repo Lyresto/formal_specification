@@ -218,6 +218,8 @@ def check_specification(__testcases, __specification):
     try:
         return run_template(__testcases, __specification, "standard", f"specification_check{suffix}")
     except RuntimeError as e:
+        if 'MemoryError' in f'{e}':
+            raise RuntimeError(e)
         return [0.0, 0.0, [(*__tc, f'{e}') for __tc in __testcases], []]
 
 
