@@ -45,7 +45,7 @@ class Conversation:
 
 
 def call_gpt(message, temp=0.8, model=config["model"]):
-    print(f'[INFO] call gpt, temp = {temp}, model = {model}')
+    print(f'[INFO] call gpt, temp = {temp}, model = {model}', end='......')
     if type(message) == str:
         message = [{'role': 'user', 'content': message}]
     max_call = 20
@@ -64,7 +64,7 @@ def call_gpt(message, temp=0.8, model=config["model"]):
             if max_call == 0:
                 send_email(f'GPT连续调用失败, model={model}, time={datetime.now()}, error={e}')
             time.sleep(2)
-    print('[INFO] get response!')
+    print('get response!')
     return response['choices'][0]['message']['content']
 
 

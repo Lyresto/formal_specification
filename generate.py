@@ -7,7 +7,9 @@ from config import config
 from parse import check_generated_testcase, extract_specification, check_specification, parse_testcase, \
     load_jsonl, get_data_info, judge_code_v2
 from prompts import specification_prompt, requirement_refine_prompt, specification_modify_prompt_for_proper_testcase, \
-    specification_modify_prompt_for_improper_testcase, testcase_prompt, code_prompt_for_iteration
+    specification_modify_prompt_for_improper_testcase, testcase_prompt, code_prompt_for_iteration, \
+    natural_language_specification_prompt, constraints_modify_prompt_for_proper_testcase, \
+    constraints_modify_prompt_for_improper_testcase
 
 item_idx = 0
 
@@ -70,11 +72,27 @@ def choose_specification_and_testcase(__specifications, __testcases):
         [__tc for __i, __tc in enumerate(__testcases) if __check_results[max_index][__i] == 1]
 
 
+def get_python_specification(idx, turn, count, param_names, example_testcase, conversation_context):
+    conversation = start_conversation(
+        save_path=f'conversation/{middle_path}/python-specification/{idx}-{turn}-{count}.pkl',
+        load_if_exist=True
+    )
+    assert len(conversation.messages) in [0, 4]
+    if len(conversation.messages) == 0:
+        conversation.messages = conversation_context
+        specification = conversation.chat(specification_prompt(None, param_names, example_testcase=example_testcase,
+                                                               has_nl_specification=True))
+    else:
+        specification = conversation.messages[-1]["content"]
+    return extract_specification(specification)
+
+
 def get_specifications(idx, prompt, standard_testcase, param_names):
     specifications = []
     refine_threshold = 3
     break_threshold = 3
     max_specification = 10
+    example_testcase = standard_testcase[0] if len(standard_testcase) > 0 else None
     for turn in range(2):
         specification_count = 0
         conversation_count = 0
@@ -84,20 +102,21 @@ def get_specifications(idx, prompt, standard_testcase, param_names):
             log("Refine!!")
         while specification_count < max_specification:
             conversation = start_conversation(
-                save_path=f'conversation/{middle_path}/specification/{idx}-{turn}-{conversation_count}.pkl',
+                save_path=f'conversation/{middle_path}/nl-specification/{idx}-{turn}-{conversation_count}.pkl',
                 load_if_exist=True
             )
             specification_metric_within_conversation = []
             if len(conversation.messages) > 0:
                 for j in range(1, len(conversation.messages) - 1, 2):
-                    specification = extract_specification(conversation.messages[j]["content"])
+                    specification = get_python_specification(idx, turn, specification_count,
+                                                             param_names, example_testcase,
+                                                             [conversation.messages[0], conversation.messages[j]])
                     check_result = check_specification(standard_testcase, specification)
                     specifications.append((specification, check_result))
                     log("specification check result:", check_result)
                     specification_count += 1
                     standard_testcase_not_pass_count.append(int(check_result[0] != 1.0))
                     specification_metric_within_conversation.append(str(check_result[:2]))
-                specification = conversation.messages[-1]["content"]
             else:
                 refined_description = ""
                 if turn == 1:
@@ -109,13 +128,12 @@ def get_specifications(idx, prompt, standard_testcase, param_names):
                         refined_description = refine_conversation.messages[-1]["content"]
                     else:
                         refined_description = refine_conversation.chat(requirement_refine_prompt(prompt))
-                specification = conversation.chat(
-                    specification_prompt(prompt, param_names, refined_description,
-                                         standard_testcase[0] if len(standard_testcase) > 0 else None)
-                )
+                conversation.chat(natural_language_specification_prompt(prompt, refined_description))
 
             while True:
-                specification = extract_specification(specification)
+                specification = get_python_specification(idx, turn, specification_count,
+                                                         param_names, example_testcase,
+                                                         [conversation.messages[0], conversation.messages[-1]])
                 check_result = check_specification(standard_testcase, specification)
                 specifications.append((specification, check_result))
                 log("specification check result:", check_result)
@@ -133,13 +151,12 @@ def get_specifications(idx, prompt, standard_testcase, param_names):
                     log(f"{break_threshold} continuously same specifications!")
                     break
                 if check_result[0] != 1.0:
-                    specification = conversation.chat(
-                        specification_modify_prompt_for_proper_testcase(param_names, check_result[2]),
+                    conversation.chat(
+                        constraints_modify_prompt_for_proper_testcase(param_names, check_result[2]),
                         [0, -1]
                     )
                 elif check_result[1] != 1.0:
-                    specification = conversation.chat(
-                        specification_modify_prompt_for_improper_testcase(
+                    conversation.chat(constraints_modify_prompt_for_improper_testcase(
                             param_names,
                             remove_duplicate_testcase(check_result[3])
                         ),
