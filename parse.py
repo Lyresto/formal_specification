@@ -243,8 +243,8 @@ def parse_testcase(__testcases):
         if dataset == 'code_contests':
             for i, __testcase in enumerate(parsed_testcases):
                 try:
-                    to_terminal_io(__testcases[0])
-                    to_terminal_io(__testcases[1])
+                    to_terminal_io(__testcase[0])
+                    to_terminal_io(__testcase[1])
                     parsed_testcases[i] = ([__testcase[0]], [__testcase[1]])
                 except TypeError:
                     parsed_testcases[i] = None
@@ -506,6 +506,7 @@ def to_terminal_io(io: list[list[Any]], inline=False):
 
 
 if __name__ == '__main__':
+    print(parse_testcase("[([1, [])]"))
     # print(to_terminal_io([[1, 2], ["qqq"]]))
     # print(parse_func_info_for_humaneval("fn max_fill(grid:Vec<Vec<i32>>, capacity:i32) -> i32{", "rust"))
     # print(ast.literal_eval("[([[1, 3, 5]], []),([[2, 4, 6]], [[2, 0]])]"))
