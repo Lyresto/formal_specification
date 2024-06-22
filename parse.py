@@ -506,6 +506,7 @@ def to_terminal_io(io: list[list[Any]], inline=False):
 
 
 if __name__ == '__main__':
+    print(parse_testcase("[([1, [])]"))
     # print(to_terminal_io([[1, 2], ["qqq"]]))
     # print(parse_func_info_for_humaneval("fn max_fill(grid:Vec<Vec<i32>>, capacity:i32) -> i32{", "rust"))
     # print(ast.literal_eval("[([[1, 3, 5]], []),([[2, 4, 6]], [[2, 0]])]"))
