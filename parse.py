@@ -218,6 +218,8 @@ def check_specification(__testcases, __specification):
     try:
         return run_template(__testcases, __specification, "standard", f"specification_check{suffix}")
     except RuntimeError as e:
+        if 'MemoryError' in f'{e}':
+            raise RuntimeError(e)
         return [0.0, 0.0, [(*__tc, f'{e}') for __tc in __testcases], []]
 
 
@@ -240,7 +242,13 @@ def parse_testcase(__testcases):
         parsed_testcases = run_template(extract_testcase(__testcases), None, "generated", "testcase_parse")
         if dataset == 'code_contests':
             for i, __testcase in enumerate(parsed_testcases):
-                parsed_testcases[i] = ([__testcase[0]], [__testcase[1]])
+                try:
+                    to_terminal_io(__testcase[0])
+                    to_terminal_io(__testcase[1])
+                    parsed_testcases[i] = ([__testcase[0]], [__testcase[1]])
+                except TypeError:
+                    parsed_testcases[i] = None
+            parsed_testcases = list(filter(lambda x: x is not None, parsed_testcases))
         return parsed_testcases
     except RuntimeError:
         return []

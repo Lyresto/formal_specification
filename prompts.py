@@ -7,7 +7,7 @@ dataset = config["dataset"]
 
 def get_example_problem():
     if dataset in ['humaneval', 'humaneval-x']:
-        return '''# Problem:
+        return '''# Example problem:
 def median(l):
     """
     Given a list l, return median of elements in the list. 
@@ -18,7 +18,7 @@ def median(l):
     """
 '''
     elif dataset == 'code_contests':
-        return '''# Problem:
+        return '''# Example problem:
 You are given q queries in the following form:
 Given three integers l_i, r_i and d_i, find minimum positive integer x_i such that it is divisible by d_i and it does not belong to the segment [l_i, r_i].
 Can you answer all the queries?
@@ -64,7 +64,7 @@ def testcase_prompt(problem, example_testcase):
     else:
         example_testcase_prompt = ''
     if dataset in ['humaneval', 'humaneval-x']:
-        example_generated_testcase = """# Test case:
+        example_generated_testcase = """# Example test case:
 test_cases = [
     # basic function test cases
     ([[-10,4,6,1000,10,20]],[8.0]),
@@ -87,7 +87,7 @@ test_cases = [
 Each tuple in `test_cases` contains two parts: case_in and case_out, both of which are lists. Each element in the lists corresponds to a parameter/return value of the function. For example, the first example IO in the problem description can be represented as: ([[3, 1, 2, 4, 5]], [3])
 """
     elif dataset == 'code_contests':
-        example_generated_testcase = """# Test case:
+        example_generated_testcase = """# Example Test case:
 test_cases = [
     # basic function test cases
     ([[1], [78, 79, 79]], [[158]]),
@@ -125,7 +125,59 @@ Now, please provide the test cases for the following problem. Please do not dupl
 """
 
 
-def specification_prompt(problem, param_names, refined_description="", example_testcase=None):
+def natural_language_specification_prompt(problem, refined_description=""):
+    if len(refined_description) > 0:
+        problem = f"""{problem.strip()}
+
+The following is a refined description of the problem:
+
+{refined_description.strip()}
+"""
+    if dataset in ['humaneval', 'humaneval-x']:
+        example_nl_specification = """# Example constraints:
+1. Input 'l' should be a list.
+2. Each element in input 'l' should be of type int or float.
+3. 'Output' should be of type int or float.
+4. Counts of elements greater than or equal to 'output' and less than or equal to 'output' should be equal in list 'l'.
+"""
+    elif dataset == 'code_contests':
+        # TODO
+        example_nl_specification = """# Example constraints:
+1. Input should be a string.
+2. Input should contains at least a line stands for the number of queries.
+3. The first line should only contains one integer q which stands for the number of queries.
+4. q should be within the given data range.
+5. The total number of queries should be equal to q.
+6. The length of each query should be 3.
+7. Each query should only contains integer elements.
+8. l of each query should be less than or equal to r.
+9. l of each query should be within the given data range.
+10. r of each query should be within the given data range.
+11. d of each query should be within the given data range.
+12. Output should be a string.
+13. The total number of output lines should be q.
+14. The result x of each query should be a single integer.
+15. Result x of each query should be a positive integer.
+16. Result x of each query should be a multiple of d.
+17. Result x of each query should not be within the range [l, r].
+18. Result x of each query should be the minimum positive integer that meets the requirements.
+"""
+    else:
+        raise NotImplementedError()
+    return f"""Given a problem, you need to provide some constraints that **the problem input, output, and their interrelationships** should satisfy. Please list various constraints as comprehensively as possible, including those related to data type and functionality.
+Here is an example:
+{get_example_problem()}
+{example_nl_specification}
+Now, please provide the specifications for the following problem.
+
+# Problem:
+{problem.strip()}
+
+# Constraints:
+"""
+
+
+def specification_prompt(problem, param_names, refined_description="", example_testcase=None, has_nl_specification=False):
     if example_testcase is not None and dataset == 'code_contests':
         example_testcase_prompt = (
             f'# An example case_in: "{to_terminal_io(example_testcase[0][0], True)}"',
@@ -145,19 +197,20 @@ The following is a refined description of the problem:
 
 
     if dataset in ['humaneval', 'humaneval-x']:
-        example_specification = """# Specification:
+
+        example_specification = """# Example specification:
 
 def preconditions(l):
-    assert isinstance(l, list), "Input is not a list."
-    assert all([isinstance(i, (int, float)) for i in l]), "There are elements in input that are not of type int or float."
+    assert isinstance(l, list), "Input 'l' is not a list."
+    assert all([isinstance(i, (int, float)) for i in l]), "There are elements in input 'l' that are not of type int or float."
 def postconditions(l, output):
-    assert isinstance(output, (int, float)), "There are elements in output that are not of type int or float."
+    assert isinstance(output, (int, float)), "'Output' is not of type int or float."
     num_greater = sum([1 for i in l if i >= output])
     num_less = sum([1 for i in l if i <= output])
     assert num_greater == num_less, "Counts of elements greater than or equal to 'output' and less than or equal to 'output' are not equal."
 """
     elif dataset == 'code_contests':
-        example_specification = """# Specification:
+        example_specification = """# Example specification:
 def preconditions(case_in):
     assert isinstance(case_in, str), "Input is not a string."
     lines = case_in.split('\\n')
@@ -198,7 +251,9 @@ def postconditions(case_in, case_out):
     else:
         raise NotImplementedError()
 
-    return f"""I want you to act as a python programmer. Given a problem, you need to generate two specification functions: `preconditions` and `postconditions`. Please thoroughly assess the correctness of the test cases (Inputs and Outputs) from various perspectives, preconditions should check the correctness of the input form, including whether the data type and number are consistent with the requirements of the problem, etc. postconditions should check the data type and number of the output, and check whether the output meets all the conditions required. Note that this kind of check by specification here is not the realization of the problem requirements, but the use of relatively simple logic to check whether the output meets the expectation and whether it is inconsistent with the input or the problem requirements. In the event that an error is encountered during the evaluation, please print the corresponding test case along with a specific error message. Please also generate as many detailed comments as possible.
+
+    if not has_nl_specification:
+        start_prompt = f"""I want you to act as a python programmer. Given a problem, you need to generate two specification functions: `preconditions`, which checks whether the input satisfies certain constraints about the requirement, and `postconditions` checks the functional relationships between the test inputs and outputs to ensure compliance with the requirements. Please thoroughly assess the correctness of the test cases (Inputs and Outputs) from various perspectives, including but not limited to formal correctness, functional correctness, logical correctness, etc. In the event that an error is encountered during the evaluation, please print the corresponding test case along with a specific error message. Please also generate as many detailed comments as possible.
 Here is an example:
 {get_example_problem()}
 {example_specification}
@@ -206,7 +261,14 @@ Now, please provide the specifications for the following problem. Your output sh
 
 # Problem:
 {problem.strip()}
+"""
+    else:
+        start_prompt = f"""Now please translate the constraints you provided earlier into Python specification, and print detailed error information when encountering assertion errors.
+Here is an example:
+{example_specification.strip()}
+"""
 
+    return f"""{start_prompt}
 # Specification:
 {example_testcase_prompt[0]}
 def preconditions({', '.join(param_names)}):
@@ -229,7 +291,7 @@ def postconditions({', '.join(param_names)}, {get_output_name()}):
 
 def specification_modify_prompt_for_proper_testcase(param_names, testcase_info):
     testcase_info = copy.copy(testcase_info)
-    prompt = "I have tested your specification using some correct testcases to ensure its completeness. If your specification is complete, there should be no errors reported. Please modify your specification according to the following messages:"
+    prompt = "I tested your specification using some correct testcases to ensure its completeness. If your specification is complete, there should be no errors reported. Please modify your specification according to the following messages:"
     for case_in, case_out, msg in testcase_info[:1]:
         msg_item = "\nWhen "
         for params_name, param_value in zip(param_names, case_in):
@@ -244,9 +306,26 @@ def specification_modify_prompt_for_proper_testcase(param_names, testcase_info):
     return prompt
 
 
+def constraints_modify_prompt_for_proper_testcase(param_names, testcase_info):
+    testcase_info = copy.copy(testcase_info)
+    prompt = "I checked the constraints you provided using some correct testcases and found some errors, such as:"
+    for case_in, case_out, _ in testcase_info[:1]:
+        msg_item = "\nWhen "
+        for params_name, param_value in zip(param_names, case_in):
+            if isinstance(param_value, str):
+                param_value = f'"{params_name}"'
+            msg_item += f"{params_name} = {param_value}, "
+        if isinstance(case_out[0], str):
+            case_out[0] = f'"{case_out[0]}"'
+        msg_item += f"{get_output_name()} = {case_out[0]}, this correct testcase does not meet the constraints you provided."
+        prompt += msg_item
+    prompt += "\nPlease modify the constraints to ensure that these correct testcases comply with the constraints. Provide all constraints obtained after modification."
+    return prompt
+
+
 def specification_modify_prompt_for_improper_testcase(param_names, testcase_info):
     testcase_info = copy.copy(testcase_info)
-    prompt = "I have tested your specification using some possible wrong cases to ensure its soundness. If your specification is sound, there should be some errors reported. Please modify your specification according to the following messages:"
+    prompt = "I tested your specification using some possibly wrong cases to ensure its soundness. If your specification is sound, there should be some errors reported. Please modify your specification according to the following messages:"
     for case_in, case_out in testcase_info[:1]:
         msg_item = "\nWhen "
         for params_name, param_value in zip(param_names, case_in):
@@ -258,6 +337,23 @@ def specification_modify_prompt_for_improper_testcase(param_names, testcase_info
         msg_item += f"{get_output_name()} = {case_out[0]}, this case possibly erroneously passed the specification."
         prompt += msg_item
     prompt += "\nPlease provide the revised specification directly."
+    return prompt
+
+
+def constraints_modify_prompt_for_improper_testcase(param_names, testcase_info):
+    testcase_info = copy.copy(testcase_info)
+    prompt = "I checked the constraints you provided using some **possibly incorrect** testcases and found that some of them fully comply with the constraints, such as:"
+    for case_in, case_out in testcase_info[:1]:
+        msg_item = "\nWhen "
+        for params_name, param_value in zip(param_names, case_in):
+            if isinstance(param_value, str):
+                param_value = f'"{params_name}"'
+            msg_item += f"{params_name} = {param_value}, "
+        if isinstance(case_out[0], str):
+            case_out[0] = f'"{case_out[0]}"'
+        msg_item += f"{get_output_name()} = {case_out[0]}, this possibly incorrect testcase fully comply with the constraints."
+        prompt += msg_item
+    prompt += "\nPlease modify or add constraints so that these possibly incorrect test cases do not comply with the constraints. Provide all constraints obtained after modification."
     return prompt
 
 
