@@ -7,20 +7,30 @@ import math
 # [TO REPLACE] specification
 
 
-def validate_test_cases(case_in, case_out):
-    try:
-        preconditions(*case_in)
-        postconditions(*case_in, *case_out)
-        return 1
-    except Exception:
-        return 0
+def validate_test_cases_with_timeout(case_in, case_out, timeout=30):
+    result = [-1]
+
+    def validate_test_cases():
+        try:
+            preconditions(*case_in)
+            postconditions(*case_in, *case_out)
+            result[0] = 1
+        except Exception:
+            result[0] = 0
+
+    thread = threading.Thread(target=validate_test_cases)
+    thread.start()
+    thread.join(timeout)
+    if thread.is_alive():
+        raise TimeoutError()
+    return result[0]
 
 
 if __name__ == '__main__':
     check_results = []
     for testcase in generated_testcases:
         try:
-            check_results.append(validate_test_cases(*testcase))
+            check_results.append(validate_test_cases_with_timeout(*testcase))
         except Exception:
             check_results.append(0)
     print(check_results)
