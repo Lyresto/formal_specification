@@ -54,7 +54,8 @@ def call_gpt(message, temp=0.8, model=config["model"]):
             response = openai.ChatCompletion.create(
                 model=model,
                 messages=message,
-                temperature=temp
+                temperature=temp,
+                top_p=0.95
             )
             break
         except Exception as e:

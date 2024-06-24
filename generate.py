@@ -238,8 +238,8 @@ def main():
         if item[task_key] in completions:
             log('skip')
             continue
-        if item_idx > 0:
-            break
+        # if item_idx < 29:
+        #     continue
         # if not item["task_id"].startswith('Java'):
         #     continue
         # if int(item["task_id"].split('/')[1]) >= 3:
