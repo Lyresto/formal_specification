@@ -4,7 +4,63 @@ from parse import to_terminal_io
 
 dataset = config["dataset"]
 
+def get_another_example_for_code_contests():
+    if dataset in ['humaneval', 'humaneval-x']:
+        return ""
+    else:
+        return '''Here is another example which help you to generate specification in complex situation:
+# Example problem:
+Polycarp starts his own business. Tomorrow will be the first working day of his car repair shop. For now the car repair shop is very small and only one car can be repaired at a given time.\n\nPolycarp is good at marketing, so he has already collected n requests from clients. The requests are numbered from 1 to n in order they came.\n\nThe i-th request is characterized by two values: si \u2014 the day when a client wants to start the repair of his car, di \u2014 duration (in days) to repair the car. The days are enumerated from 1, the first day is tomorrow, the second day is the day after tomorrow and so on.\n\nPolycarp is making schedule by processing requests in the order from the first to the n-th request. He schedules the i-th request as follows:\n\n  * If the car repair shop is idle for di days starting from si (si, si + 1, ..., si + di - 1), then these days are used to repair a car of the i-th client. \n  * Otherwise, Polycarp finds the first day x (from 1 and further) that there are di subsequent days when no repair is scheduled starting from x. In other words he chooses the smallest positive x that all days x, x + 1, ..., x + di - 1 are not scheduled for repair of any car. So, the car of the i-th client will be repaired in the range [x, x + di - 1]. It is possible that the day x when repair is scheduled to start will be less than si. \n\n\n\nGiven n requests, you are asked to help Polycarp schedule all of them according to the rules above.\n\nInput\n\nThe first line contains integer n (1 \u2264 n \u2264 200) \u2014 the number of requests from clients.\n\nThe following n lines contain requests, one request per line. The i-th request is given as the pair of integers si, di (1 \u2264 si \u2264 109, 1 \u2264 di \u2264 5\u00b7106), where si is the preferred time to start repairing the i-th car, di is the number of days to repair the i-th car.\n\nThe requests should be processed in the order they are given in the input.\n\nOutput\n\nPrint n lines. The i-th line should contain two integers \u2014 the start day to repair the i-th car and the finish day to repair the i-th car.\n\nExamples\n\nInput\n\n3\n9 2\n7 3\n2 4\n\n\nOutput\n\n9 10\n1 3\n4 7\n\n\nInput\n\n4\n1000000000 1000000\n1000000000 1000000\n100000000 1000000\n1000000000 1000000\n\n\nOutput\n\n1000000000 1000999999\n1 1000000\n100000000 100999999\n1000001 2000000
+# Example specification:
+def preconditions(case_in):
+    assert isinstance(case_in, str), "Input is not a string."
+    lines = case_in.split('\n')
+    assert len(lines[0]) == 1, "The first line of input should only contain one element."
+    assert lines[0][0].isdigit(), "n should be integer."
+    n = int(lines[0][0])
+    assert 1 <= n <= 200, "n is not within the given range"
+    assert n == len(lines) - 1, "The input lines is not n+1"
+    requests = lines[1:]
+    for idx, output in enumerate(requests):
+        request = output.split(' ')
+        assert len(request) == 2, f"The {idx + 1}th request should only contain two elements."
+        for element in request:
+            assert element.isdigit(), f"The {idx + 1}th request contains non-integer element {element}."
 
+        s, d = tuple(request)
+        s = int(s)
+        d = int(d)
+        assert 1 <= s <= 1e9, f"The s of {idx + 1}th request is not within the given range."
+        assert 1 <= d <= 5e6, f"The d of {idx + 1}th request is not within the given range."
+
+
+def postconditions(case_in, case_out):
+    assert isinstance(case_out, str), "Output is not a string."
+    case_in_lines = case_in.split('\n')
+    case_out_lines = case_out.split('\n')
+    n = int(case_in_lines[0][0])
+    assert n == len(case_out_lines), "The number of output lines should be n."
+    for idx, results in enumerate(case_out_lines):
+
+        start_day = results.split(' ')[0]
+        finish_day = results.split(' ')[1]
+        assert start_day.isdigit(), f"The start day to repair the {idx + 1}th car should be integer."
+        assert finish_day.isdigit(), f"The finish day to repair the {idx + 1}th car should be integer."
+        start_day = int(start_day)
+        finish_day = int(finish_day)
+        assert start_day <= finish_day, f"The {idx + 1}th request's start day should be earlier than finish day."
+        if start_day != case_in_lines[idx + 1][0]:
+            assert any(int(output_result.split(' ')[0]) == 1 for output_result in
+                       case_out_lines), f"If there is a car which expected start repair time is not equal to the actual start repair time, then there must be a car which actual start repair time is 1."
+
+    case_out_lines.sort(key=lambda x: x[0])
+    for i in range(len(case_out_lines) - 1):
+        assert case_out_lines[i][1] < case_out_lines[i + 1][
+            0], f"A car's actual finish repair time {case_out_lines[i][1]} and the other car's actual start repair time {case_out_lines[i + 1][0]} overlap."
+
+        
+
+'''
 def get_example_problem():
     if dataset in ['humaneval', 'humaneval-x']:
         return '''# Example problem:
@@ -18,7 +74,7 @@ def median(l):
     """
 '''
     elif dataset == 'code_contests':
-        return '''# Example problem:
+        return '''# Example problem :
 You are given q queries in the following form:
 Given three integers l_i, r_i and d_i, find minimum positive integer x_i such that it is divisible by d_i and it does not belong to the segment [l_i, r_i].
 Can you answer all the queries?
@@ -257,6 +313,9 @@ def postconditions(case_in, case_out):
 Here is an example:
 {get_example_problem()}
 {example_specification}
+
+{get_another_example_for_code_contests()}
+
 Now, please provide the specifications for the following problem. Your output should only include two functions: "preconditions" and "postconditions". You do not need to generate test cases. Only provide the code.
 
 # Problem:
@@ -286,6 +345,8 @@ def postconditions({', '.join(param_names)}, {get_output_name()}):
     case_out_lines = case_out.split('\\n')
     #----------------end-------------------------------------
     # TODO: Continue to fill in postconditions
+    
+You only need to return the Specification.
 """
 
 
