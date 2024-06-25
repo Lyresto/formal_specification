@@ -1,5 +1,5 @@
 import threading
-from typing import Any, Set, List, Dict, Tuple
+from typing import Any, Set, List, Dict, Tuple, Optional
 import math
 
 # [TO REPLACE] generated_testcases
@@ -9,7 +9,7 @@ import math
 
 
 def validate_test_cases_with_timeout(case_in, case_out, timeout=10):
-    result = [-1]
+    result = [0]
 
     def validate_test_cases():
         try:
