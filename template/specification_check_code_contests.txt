@@ -4,6 +4,7 @@ import random
 import re
 from typing import Any, Set, List, Dict, Tuple
 import math
+import threading
 
 
 def get_step_num():
@@ -182,14 +183,25 @@ def randomly_modify_single(var: Any, is_character=False, steps=1):
 # [TO REPLACE] specification
 
 
-def validate_test_cases(case_in, case_out):
-    try:
-        preconditions(*case_in)
-        postconditions(*case_in, *case_out)
-        return 1, ""
-    except Exception as e:
-        return 0, f"{e}"
+def validate_test_cases_with_timeout(case_in, case_out, timeout=10):
+    result = [-1]
+    message = [""]
+    def validate_test_cases():
+        try:
+            preconditions(*case_in)
+            postconditions(*case_in, *case_out)
+            result[0] = 1
+        except Exception as e:
+            result[0] = 0
+            message[0] = f"{e}"
 
+    thread = threading.Thread(target=validate_test_cases)
+    thread.setDaemon(True)
+    thread.start()
+    thread.join(timeout)
+    if thread.is_alive():
+        raise TimeoutError()
+    return result[0], message[0]
 
 def parse_terminal_io(io: str):
     if not isinstance(io, str):
@@ -233,7 +245,7 @@ if __name__ == '__main__':
     if len(standard_testcases) == 0:
         print([1.0, 1.0, [], []])
     for testcase in standard_testcases:
-        result, message = validate_test_cases([to_terminal_io(testcase[0][0])], [to_terminal_io(testcase[1][0])])
+        result, message = validate_test_cases_with_timeout([to_terminal_io(testcase[0][0])], [to_terminal_io(testcase[1][0])])
         if result == 0:
             proper_testcase_error_message.append((*testcase, message))
         pass_num_proper += result
@@ -243,7 +255,7 @@ if __name__ == '__main__':
                 different_case_in_cnt += 1
             case_out_set.add(str(improper_testcase[1]))
             improper_testcase = ([to_terminal_io(improper_testcase[0][0])], [to_terminal_io(improper_testcase[1][0])])
-            result, _ = validate_test_cases(*improper_testcase)
+            result, _ = validate_test_cases_with_timeout(*improper_testcase)
             if result == 1 and improper_testcase not in improper_testcase_pass_spec:
                 improper_testcase_pass_spec.append(improper_testcase)
             pass_num_improper += result
