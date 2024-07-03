@@ -4,6 +4,7 @@ import json
 import os
 import re
 import subprocess
+import threading
 import tokenize
 import warnings
 from io import BytesIO
@@ -201,6 +202,14 @@ def run_template(__testcases, __specification, __testcase_type, __file_name, __s
 
     process = subprocess.Popen([config["python3_interpreter_path"], f"{__file_name}.py"],
                                cwd="template/", stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+    def terminate(__process):
+        __process.terminate()
+        raise RuntimeError("timeout")
+
+    timer = threading.Timer(120, terminate, args=[process])
+    timer.start()
+
     errs = ""
     while True:
         out = process.stdout.readline().decode('utf8').strip()
@@ -208,6 +217,7 @@ def run_template(__testcases, __specification, __testcase_type, __file_name, __s
         if len(re.findall('File.*?, line \\d+', err)) == 0 and len(err) > 0:
             errs += err + ', '
         if len(out) > 0 or process.poll() is not None:
+            timer.cancel()
             if len(out) == 0:
                 raise RuntimeError(errs)
             return ast.literal_eval(out)
@@ -507,7 +517,6 @@ def to_terminal_io(io: list[list[Any]], inline=False):
 
 
 if __name__ == '__main__':
-    print(parse_testcase("[([1, [])]"))
     # print(to_terminal_io([[1, 2], ["qqq"]]))
     # print(parse_func_info_for_humaneval("fn max_fill(grid:Vec<Vec<i32>>, capacity:i32) -> i32{", "rust"))
     # print(ast.literal_eval("[([[1, 3, 5]], []),([[2, 4, 6]], [[2, 0]])]"))
