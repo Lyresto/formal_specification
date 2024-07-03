@@ -2,7 +2,9 @@ import ast
 import copy
 import random
 import re
-from typing import Any, Set, List, Dict, Tuple
+import threading
+import time
+from typing import Any, Set, List, Dict, Tuple, Optional
 import math
 import threading
 
@@ -141,9 +143,13 @@ def randomly_modify_single(var: Any, is_character=False, steps=1):
             var = {}
         elif operation == 0:
             length = len(var)
+            iter_count = 0
             while len(var) == length:
                 seed_data = get_seed_data(var)
+                if iter_count >= 10:
+                    seed_data = get_seed_data(base_data)
                 var.add(randomly_modify_single(seed_data))
+                iter_count += 1
         elif operation == 1:
             lst = list(var)
             update_index = random.randint(0, len(lst) - 1)
@@ -157,11 +163,15 @@ def randomly_modify_single(var: Any, is_character=False, steps=1):
         if empty:
             var = dict()
         elif operation == 0:
+            iter_count = 0
             while True:
                 key_seed_data = get_seed_data(var.keys())
+                if iter_count >= 10:
+                    key_seed_data = get_seed_data(base_data)
                 value_seed_data = get_seed_data(var.values())
                 new_key = randomly_modify_single(key_seed_data)
                 if new_key in var:
+                    iter_count += 1
                     continue
                 var[new_key] = randomly_modify_single(value_seed_data)
                 break
@@ -184,24 +194,29 @@ def randomly_modify_single(var: Any, is_character=False, steps=1):
 
 
 def validate_test_cases_with_timeout(case_in, case_out, timeout=10):
-    result = [-1]
-    message = [""]
+
+    __result = [0]
+    __message = [""]
+
     def validate_test_cases():
         try:
             preconditions(*case_in)
             postconditions(*case_in, *case_out)
-            result[0] = 1
+
+            __result[0] = 1
+            __message[0] = ""
         except Exception as e:
-            result[0] = 0
-            message[0] = f"{e}"
+            __result[0] = 0
+            __message[0] = f"{e}"
 
     thread = threading.Thread(target=validate_test_cases)
     thread.setDaemon(True)
+    start_time = time.time()
     thread.start()
     thread.join(timeout)
     if thread.is_alive():
         raise TimeoutError()
-    return result[0], message[0]
+    return __result[0], __message[0], time.time() - start_time
 
 def parse_terminal_io(io: str):
     if not isinstance(io, str):
@@ -235,6 +250,7 @@ if __name__ == '__main__':
     empty_rate = 0.1
     keep_rate = 0.2
     max_step = 4
+    max_time_spend = 120
 
     pass_num_proper = 0
     pass_num_improper = 0
@@ -242,25 +258,34 @@ if __name__ == '__main__':
     improper_testcase_pass_spec = []
     case_out_set = set()
     different_case_in_cnt = 0
+    random_testcase_cnt = 0
+    total_time_spend = 0
     if len(standard_testcases) == 0:
         print([1.0, 1.0, [], []])
     for testcase in standard_testcases:
-        result, message = validate_test_cases_with_timeout([to_terminal_io(testcase[0][0])], [to_terminal_io(testcase[1][0])])
+        result, message, _ = validate_test_cases_with_timeout([to_terminal_io(testcase[0][0])], [to_terminal_io(testcase[1][0])])
         if result == 0:
             proper_testcase_error_message.append((*testcase, message))
         pass_num_proper += result
-        for _ in range(generate_num_per_testcase):
+    for _ in range(generate_num_per_testcase):
+        for testcase in standard_testcases:
             improper_testcase = generate_improper_testcases(*testcase)
             if improper_testcase[0] != testcase[0]:
                 different_case_in_cnt += 1
             case_out_set.add(str(improper_testcase[1]))
             improper_testcase = ([to_terminal_io(improper_testcase[0][0])], [to_terminal_io(improper_testcase[1][0])])
-            result, _ = validate_test_cases_with_timeout(*improper_testcase)
+            result, _, spend = validate_test_cases_with_timeout(*improper_testcase)
+            total_time_spend += spend
+            if total_time_spend >= max_time_spend:
+                break
             if result == 1 and improper_testcase not in improper_testcase_pass_spec:
                 improper_testcase_pass_spec.append(improper_testcase)
             pass_num_improper += result
-    collision_rate = different_case_in_cnt / (generate_num_per_testcase * len(standard_testcases)) / len(case_out_set)
-    random_testcase_pass_rate = 1 - pass_num_improper / (generate_num_per_testcase * len(standard_testcases))
+            random_testcase_cnt += 1
+        if total_time_spend >= max_time_spend:
+            break
+    collision_rate = different_case_in_cnt / random_testcase_cnt / len(case_out_set)
+    random_testcase_pass_rate = 1 - pass_num_improper / random_testcase_cnt
     print([pass_num_proper / len(standard_testcases),
            min(1.0, random_testcase_pass_rate + 1.5 * collision_rate),
            proper_testcase_error_message,

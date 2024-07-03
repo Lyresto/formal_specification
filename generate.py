@@ -158,9 +158,9 @@ def get_specifications(idx, prompt, standard_testcase, param_names):
                     )
                 elif check_result[1] != 1.0:
                     conversation.chat(constraints_modify_prompt_for_improper_testcase(
-                            param_names,
-                            remove_duplicate_testcase(check_result[3])
-                        ),
+                        param_names,
+                        remove_duplicate_testcase(check_result[3])
+                    ),
                         [0, -1]
                     )
             if refine:
@@ -219,7 +219,10 @@ def get_solution(idx, info, specification, generate_testcases):
     while True:
         judge_result, comp_code = judge_code_v2(generate_testcases, specification, code, info)
         log("failed testcases:", judge_result)
-        codes.append((comp_code, 1 - len(judge_result) / len(generate_testcases)))
+        if len(generate_testcases) != 0:
+            codes.append((comp_code, 1 - len(judge_result) / len(generate_testcases)))
+        else:
+            codes.append((comp_code, 1.0))
         count += 1
         if count == max_generation or codes[-1][1] == 1.0:
             break

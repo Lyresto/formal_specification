@@ -117,7 +117,7 @@ def parse_func_info_for_humaneval(declaration, language):
     func_sign = ""
     for line in declaration.split('\n')[::-1]:
         line = line.strip()
-        if len(line) == 0 or line.startswith('import ') or line.startswith('from '):
+        if len(line) == 0 or line.startswith('import ') or line.startswith('from ') or line == '"':
             continue
         func_sign = line
         break
@@ -375,7 +375,8 @@ def judge_code_v2(__testcases, __specification, __raw_code, __info):
             assert len(matches) <= 1
             if len(matches) == 1:
                 solution_outputs[idx] = parse_terminal_io(matches[0].strip())
-        triphase_testcases = [([tc[0]], [tc[1]], [to_terminal_io(sol_out)]) for tc, sol_out in zip(testcases_str, solution_outputs)]
+        triphase_testcases = [([tc[0]], [tc[1]], [to_terminal_io(sol_out)]) for tc, sol_out in
+                              zip(testcases_str, solution_outputs)]
     else:
         raise NotImplementedError()
     return run_template(triphase_testcases, __specification, "triphase", "code_judge_2"), completed_code

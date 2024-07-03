@@ -149,7 +149,7 @@ Here is an example:
 {get_example_problem()}
 {example_generated_testcase}
 Now, please provide the test cases for the following problem. Please do not duplicate the Example I0 given in the problem description.
-
+Do not use undefined functions, such as 'random' and 'string'. 
 # Problem:
 {problem.strip()}
 
@@ -178,7 +178,7 @@ The following is a refined description of the problem:
         example_nl_specification = """# Example constraints:
 1. Input should be a string.
 2. Input should contains at least a line stands for the number of queries.
-3. The first line of input should only contains one element q.
+3. According to the specific input format,the first line of input should only contains one element q.
 4. The only element q in the first line should be integer.
 5. q should be within the given data range.
 6. The total number of queries of input should be equal to q.
@@ -295,14 +295,14 @@ Here is an example:
 {get_example_problem()}
 {example_specification}
 
-Now, please provide the specifications for the following problem.Try to give a CORRECT and RESTRICTIVE specification. Please ensure that the syntax of the specification is CORRECT and can be COMPILED and RUN.Your output should only include two functions: "preconditions" and "postconditions". You do not need to generate test cases. Only provide the code.
-Unresolved reference variables and unresolved property references to a class CANNOT appear in the specification! For example,do not use the 'isdigit()' function on variables of type 'int'.
+Now, please provide the specifications for the following problem.Try to give a CORRECT and RESTRICTIVE specification. Please ensure that the syntax of the specification is CORRECT and can be COMPILED and RUN successfully. Your output should only include two functions: "preconditions" and "postconditions". You do not need to generate test cases. Only provide the code.
+Non-defined variables and functions in the specification is NOT permitted ! Unresolved property references to a class CANNOT appear in the specification! For example,do not use the 'isdigit()' function on variables of type 'int'.
 # Problem:
 {problem.strip()}
 """
     else:
         start_prompt = f"""Now please translate the constraints you provided earlier into Python specification, and print detailed error information when encountering assertion errors.
-Here is an example:
+Here is an example after translating:
 {example_specification.strip()}
 """
 
@@ -324,8 +324,9 @@ def postconditions({', '.join(param_names)}, {get_output_name()}):
     case_out_lines = case_out.split('\\n')
     #----------------end-------------------------------------
     # TODO: Continue to fill in postconditions
-    
-You only need to return the Specification.Please ensure that the syntax of the specification is CORRECT and can be COMPILED and RUN.Unresolved reference variables and unresolved property references to a class CANNOT appear in the specification! For example,do not use the 'isdigit()' function on variables of type 'int'.
+
+Please ensure that the syntax of the specification is CORRECT and can be COMPILED and RUN successfully.Non-defined variables and functions in the specification is NOT permitted ! Unresolved property references to a class CANNOT appear in the specification! For example,do not use the 'isdigit()' function on variables of type 'int'.    
+Now start translating the constraints you provided earlier into Python specification.
 """
 
 
