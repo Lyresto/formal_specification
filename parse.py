@@ -317,7 +317,10 @@ def extract_completed_code(__raw_code, __info):
             return '\n'.join(final_lines)
     elif dataset == 'code_contests':
         if '```' in __raw_code:
-            return re.findall('```.*?\n(.+?)```', __raw_code, flags=re.DOTALL)[0]
+            try:
+                return re.findall('```.*?\n(.+?)```', __raw_code, flags=re.DOTALL)[0]
+            except IndexError:
+                return re.findall('```.*?\n(.*)', __raw_code, flags=re.DOTALL)[0]
         return __raw_code
 
 
