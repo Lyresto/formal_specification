@@ -32,6 +32,13 @@ def load_jsonl(path) -> list[dict]:
         return data
 
 
+def jsonl_to_dict(data, key) -> dict[str, dict]:
+    new_data = dict()
+    for line in data:
+        new_data[line[key]] = line
+    return new_data
+
+
 # deprecated
 def check_func_param_and_return(__code, __entrypoint):
     warnings.warn("deprecated.")

@@ -1,5 +1,7 @@
 import os
 import sys
+import time
+
 import fire
 import json
 import gzip
@@ -237,6 +239,7 @@ def evaluate_functional_correctness(
 
 def main():
     fire.Fire(evaluate_functional_correctness)
+    time.sleep(1)
 
 
 if __name__ == "__main__":
