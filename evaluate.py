@@ -6,6 +6,7 @@ import subprocess
 import pandas as pd
 from tqdm import tqdm
 
+import config
 from parse import load_jsonl, jsonl_to_dict
 
 
