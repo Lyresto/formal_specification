@@ -54,6 +54,7 @@ def check_correctness(
     Evaluates the functional correctness of a completion by running the test
     suite provided in the problem.
     """
+    timeout = 3.0 * len(sample["testcases"])
 
     def unsafe_execute(tmp_dir):
         random_id = random.uniform(1, 1000)
@@ -69,7 +70,7 @@ def check_correctness(
             os.makedirs(tmp_dir)
 
         os.chdir(tmp_dir)
-
+        print('timeout =', timeout)
         if "python" in language_type.lower():
             # Disable functionalities that can make destructive changes to the test.
             open('test.py', 'w').write(code)
@@ -86,10 +87,10 @@ def check_correctness(
                     # uncomment the following line and proceed at your own risk:
                     failed = False
                     for i, tc in enumerate(testcases):
-                        tc_input, _ = tc
-                        progress = subprocess.Popen(['python', 'test.py'], stdin=subprocess.PIPE,
+                        tc_input, tc_output = tc
+                        process = subprocess.Popen(['python', 'test.py'], stdin=subprocess.PIPE,
                                                     stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-                        out, err = progress.communicate(input=tc_input)
+                        out, err = process.communicate(input=tc_input)
                         if len(err) == 0:
                             print(f'\n<TESTCASE OUTPUT {i}>\n{out.strip()}\n</TESTCASE OUTPUT {i}>\n')
                         elif not failed:
@@ -97,12 +98,16 @@ def check_correctness(
                             failed = True
                         if len(err) > 0:
                             print(f'\n<TESTCASE ERROR {i}>\n{err.strip()}\n</TESTCASE ERROR {i}>\n')
+                        if not failed and out.strip() != tc_output.strip():
+                            result.append("failed: wrong answer")
+                            failed = True
                     if not failed:
                         result.append("passed")
 
             except TimeoutException:
                 print("time out")
-                result.append("timed out")
+                if not failed:
+                    result.append("timed out")
 
             shutil.rmtree(tmp_dir)
 
@@ -227,10 +232,10 @@ def check_correctness(
                         # uncomment the following line and proceed at your own risk:
                         failed = False
                         for i, tc in enumerate(testcases):
-                            tc_input, _ = tc
-                            progress = subprocess.Popen(['./a.out'], stdin=subprocess.PIPE,
+                            tc_input, tc_output = tc
+                            process = subprocess.Popen(['./a.out'], stdin=subprocess.PIPE,
                                                         stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-                            out, err = progress.communicate(input=tc_input)
+                            out, err = process.communicate(input=tc_input)
                             if len(err) == 0:
                                 print(f'\n<TESTCASE OUTPUT {i}>\n{out.strip()}\n</TESTCASE OUTPUT {i}>\n')
                             elif not failed:
@@ -238,11 +243,15 @@ def check_correctness(
                                 failed = True
                             if len(err) > 0:
                                 print(f'\n<TESTCASE ERROR {i}>\n{err.strip()}\n</TESTCASE ERROR {i}>\n')
+                            if not failed and out.strip() != tc_output.strip():
+                                result.append("failed: wrong answer")
+                                failed = True
                         if not failed:
                             result.append("passed")
                 except TimeoutException:
                     print("time out")
-                    result.append("timed out")
+                    if not failed:
+                        result.append("timed out")
 
             shutil.rmtree(tmp_dir)
         elif "rust" in language_type.lower():
@@ -342,10 +351,10 @@ def check_correctness(
                         # uncomment the following line and proceed at your own risk:
                         failed = False
                         for i, tc in enumerate(testcases):
-                            tc_input, _ = tc
-                            progress = subprocess.Popen([f'java', '-cp', tmp_dir, 'Main'], stdin=subprocess.PIPE,
+                            tc_input, tc_output = tc
+                            process = subprocess.Popen([f'java', '-cp', tmp_dir, 'Main'], stdin=subprocess.PIPE,
                                                         stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-                            out, err = progress.communicate(input=tc_input)
+                            out, err = process.communicate(input=tc_input)
                             if len(err) == 0:
                                 print(f'\n<TESTCASE OUTPUT {i}>\n{out.strip()}\n</TESTCASE OUTPUT {i}>\n')
                             elif not failed:
@@ -353,13 +362,18 @@ def check_correctness(
                                 failed = True
                             if len(err) > 0:
                                 print(f'\n<TESTCASE ERROR {i}>\n{err.strip()}\n</TESTCASE ERROR {i}>\n')
+                            if not failed and out.strip() != tc_output.strip():
+                                result.append("failed: wrong answer")
+                                failed = True
                         if not failed:
                             result.append("passed")
                 except TimeoutException:
                     print("time out")
-                    result.append("time out")
+                    if not failed:
+                        result.append("time out")
                 except BaseException as e:
-                    result.append(f"failed: {e}")
+                    if not failed:
+                        result.append(f"failed: {e}")
 
             shutil.rmtree(tmp_dir)
 
@@ -374,6 +388,8 @@ def check_correctness(
 
     if not result:
         result.append("timed out")
+
+    print(f'\n[RESULT_{"/".join(task_id.split("/")[1:])}] {result}')
 
     return {
         "task_id": task_id,

@@ -395,6 +395,8 @@ def check_correctness(
     if not result:
         result.append("timed out")
 
+    print(f'\n[RESULT_{task_id}] {result}')
+
     return {
         "task_id": task_id,
         "completion_id": completion_id,
