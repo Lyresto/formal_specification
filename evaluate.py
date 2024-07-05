@@ -24,11 +24,13 @@ class Timer:
         self.info = info
 
         def run():
+            time.sleep(1)
             while True:
                 if self.signum == 0:
+                    self.lock.release()
                     return
-                time.sleep(1)
                 self.bar.update(1)
+                time.sleep(1)
 
         self.signum = 1
         self.thread = threading.Thread(target=run)
@@ -39,7 +41,6 @@ class Timer:
         self.signum = 0
         self.bar.close()
         print(f'Evaluation of {self.info} ends, {remains} remaining.')
-        self.lock.release()
 
 
 def evaluate():
