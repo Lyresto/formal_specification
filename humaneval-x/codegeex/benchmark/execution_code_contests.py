@@ -55,6 +55,7 @@ def check_correctness(
     suite provided in the problem.
     """
     timeout = 3.0 * len(sample["testcases"])
+    print(f'timeout = {timeout}_{"/".join(task_id.split("/")[1:])}/{completion_id}')
 
     def unsafe_execute(tmp_dir):
         random_id = random.uniform(1, 1000)
@@ -70,7 +71,6 @@ def check_correctness(
             os.makedirs(tmp_dir)
 
         os.chdir(tmp_dir)
-        print('timeout =', timeout)
         if "python" in language_type.lower():
             # Disable functionalities that can make destructive changes to the test.
             open('test.py', 'w').write(code)
@@ -389,7 +389,7 @@ def check_correctness(
     if not result:
         result.append("timed out")
 
-    print(f'\n[RESULT_{"/".join(task_id.split("/")[1:])}] {result}')
+    print(f'\n[RESULT_{"/".join(task_id.split("/")[1:])}_{completion_id}] {result}')
 
     return {
         "task_id": task_id,

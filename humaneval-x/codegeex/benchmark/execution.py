@@ -54,9 +54,11 @@ def check_correctness(
     Evaluates the functional correctness of a completion by running the test
     suite provided in the problem.
     """
+    print(f'timeout = {timeout}_{task_id}/{completion_id}')
 
     def unsafe_execute(tmp_dir):
         random_id = random.uniform(1, 1000)
+
         if "python" in language_type.lower():
             with create_tempdir():
 
@@ -395,7 +397,7 @@ def check_correctness(
     if not result:
         result.append("timed out")
 
-    print(f'\n[RESULT_{task_id}] {result}')
+    print(f'\n[RESULT_{task_id}_{completion_id}] {result}')
 
     return {
         "task_id": task_id,

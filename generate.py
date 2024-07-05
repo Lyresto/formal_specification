@@ -6,8 +6,7 @@ from chatgpt import start_conversation, load_intermediate_results
 from config import config
 from parse import check_generated_testcase, extract_specification, check_specification, parse_testcase, \
     load_jsonl, get_data_info, judge_code_v2
-from prompts import specification_prompt, requirement_refine_prompt, specification_modify_prompt_for_proper_testcase, \
-    specification_modify_prompt_for_improper_testcase, testcase_prompt, code_prompt_for_iteration, \
+from prompts import specification_prompt, requirement_refine_prompt, testcase_prompt, code_prompt_for_iteration, \
     natural_language_specification_prompt, constraints_modify_prompt_for_proper_testcase, \
     constraints_modify_prompt_for_improper_testcase
 
