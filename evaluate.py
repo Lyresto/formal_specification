@@ -19,17 +19,20 @@ class Timer:
     lock = threading.Lock()
 
     def __init__(self, seconds, info):
-        self.lock.acquire()
-        self.bar = tqdm(desc=f'Time Costed ({info})', unit='s', total=seconds)
         self.info = info
 
         def run():
+            self.lock.acquire()
+            bar = tqdm(desc=f'Time Costed ({info})', unit='s', total=seconds)
             time.sleep(1)
             while True:
                 if self.signum == 0:
+                    bar.close()
+                    print(f'Evaluation of {self.info} ends, {remains} remaining.')
+                    time.sleep(0.1)
                     self.lock.release()
                     return
-                self.bar.update(1)
+                bar.update(1)
                 time.sleep(1)
 
         self.signum = 1
@@ -39,8 +42,6 @@ class Timer:
 
     def close(self):
         self.signum = 0
-        self.bar.close()
-        print(f'Evaluation of {self.info} ends, {remains} remaining.')
 
 
 def evaluate():
