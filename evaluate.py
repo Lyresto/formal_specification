@@ -86,7 +86,7 @@ def evaluate():
                "-v", f"{cur_path}/humaneval-x/codegeex/benchmark/evaluate_humaneval_x.py:"
                      f"{docker_base_dir}/codegeex/benchmark/humaneval-x/evaluate_humaneval_x.py",
                "rishubi/codegeex", "bash", "-c",
-               f'{docker_base_dir}/scripts/evaluate_humaneval_x.sh {docker_base_dir}/data.jsonl {language} 4']
+               f'{docker_base_dir}/scripts/evaluate_humaneval_x.sh {docker_base_dir}/data.jsonl {language} 1']
     elif dataset == 'code_contests':
         cmd = ["docker", "run", "--gpus", "all",
                "-v", f"{cur_path}/result/tmp/tmp.jsonl:{docker_base_dir}/data.jsonl",
