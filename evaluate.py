@@ -6,7 +6,6 @@ import subprocess
 import threading
 import time
 from collections import Counter
-from typing import Union
 
 import pandas as pd
 from tqdm import tqdm
@@ -28,7 +27,7 @@ class Timer:
             while True:
                 if self.signum == 0:
                     bar.close()
-                    print(f'Evaluation of {self.info} ends, {remains} remaining.')
+                    print(f'Evaluation of {self.info} ends, {remains} remains.')
                     time.sleep(0.1)
                     self.lock.release()
                     return
@@ -54,8 +53,8 @@ def evaluate():
         check_results = dict()
     counter = Counter()
     for item in generation:
-        task_id = item[task_key]
-        if task_id.split('/')[0].lower() == language or dataset == 'code_contests':
+        ref_task_id = task_id = item[task_key]
+        if task_id.split('/')[0].lower() == language or dataset in ['humaneval', 'code_contests']:
             if task_id not in check_results:
                 check_results[task_id] = []
             completion_id = counter[task_id]
@@ -63,13 +62,18 @@ def evaluate():
                 check_results[task_id].append(None)
             if check_results[task_id][completion_id] is None:
                 if dataset in ['humaneval', 'humaneval-x']:
-                    test_file_str += json.dumps({"task_id": task_id, "completion": item["generation"],
+                    if dataset == 'humaneval':
+                        test_code = '\n\n'.join([data[task_id]["test"], f'check({data[task_id]["entry_point"]})'])
+                        ref_task_id = f'Python/{task_id.split("/")[1]}'
+                    else:
+                        test_code = data[task_id]["test"]
+                    test_file_str += json.dumps({"task_id": ref_task_id, "completion": item["generation"],
                                                  "completion_id": completion_id,
-                                                 "test_code": data[task_id]["test"]}) + "\n"
+                                                 "test_code": test_code}) + "\n"
                 elif dataset in ['code_contests']:
                     testcase = data[task_id]["generated_tests"]
-                    test_file_str += json.dumps({"task_id": f'{language}/{task_id}', "test_code": item["generation"],
-                                                 "completion_id": completion_id,
+                    test_file_str += json.dumps({"task_id": f'{language}/{ref_task_id}',
+                                                 "test_code": item["generation"], "completion_id": completion_id,
                                                  "testcases": list(zip(testcase["input"], testcase["output"]))}) + "\n"
             else:
                 remains -= 1
@@ -111,8 +115,10 @@ def evaluate():
                 matches = re.match('timeout = (.+?)_(.+)', out)
                 timer = Timer(int(float(matches.group(1))), matches.group(2))
             elif out.startswith('[RESULT'):
-                matches = re.match('\\[RESULT_(.+)_(.+?)] (.*)', out)
-                task_id = matches.group(1).strip()
+                matches = re.match('\\[RESULT_(.+)_(\\d+?)] (.*)', out)
+                task_id = ref_task_id = matches.group(1).strip()
+                if dataset == 'humaneval':
+                    task_id = f'HumanEval/{ref_task_id.split("/")[1]}'
                 completion_id = int(matches.group(2).strip())
                 output = ast.literal_eval(matches.group(3).strip())
                 check_results[task_id][completion_id] = output[0]
@@ -122,6 +128,7 @@ def evaluate():
                 timer.close()
             else:
                 break
+    Timer.lock.acquire()
     print(f'Write evaluation results to {result_path}.')
     with open(result_path, 'w+') as f:
         json.dump(check_results, f, indent=4)
@@ -129,9 +136,9 @@ def evaluate():
 
 if __name__ == '__main__':
     # Config
-    dataset = 'code_contests'
+    dataset = 'humaneval'
     language = 'python'
-    generation_path = 'result/code_contests_gpt-3.5-turbo_python.jsonl'
+    generation_path = 'result/humaneval_gpt-3.5-turbo.jsonl'
     print(f'Evaluate {generation_path} of {dataset} dataset using {language} language.')
 
     if dataset in ['humaneval', 'humaneval-x']:
