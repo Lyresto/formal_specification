@@ -23,7 +23,6 @@ class Timer:
         def run():
             self.lock.acquire()
             bar = tqdm(desc=f'Time Costed ({info})', unit='s', total=seconds)
-            time.sleep(1)
             while True:
                 if self.signum == 0:
                     bar.close()
@@ -31,8 +30,8 @@ class Timer:
                     time.sleep(0.1)
                     self.lock.release()
                     return
-                bar.update(1)
                 time.sleep(1)
+                bar.update(1)
 
         self.signum = 1
         self.thread = threading.Thread(target=run)
@@ -138,7 +137,7 @@ if __name__ == '__main__':
     # Config
     dataset = 'code_contests'
     language = 'python'
-    generation_path = 'C:\\Users\\17451\\PycharmProjects\\formal_specification\\result\\test.jsonl'
+    generation_path = 'result/humaneval_groundtruth.jsonl'
     print(f'Evaluate {generation_path} of {dataset} dataset using {language} language.')
 
     if dataset in ['humaneval', 'humaneval-x']:

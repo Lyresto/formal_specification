@@ -114,6 +114,7 @@ def call_deepseek_coder(messages_ori, temp=0.8, model=config["model"]):
                     "top_p": 0.95
                 }
             })
+
             print('get response!')
             return extract_bot_response(response)
 
@@ -123,10 +124,8 @@ def call_deepseek_coder(messages_ori, temp=0.8, model=config["model"]):
             max_call -= 1
             if max_call == 0:
                 send_email(f'deepseek-coder 连续调用失败, model={model}, time={datetime.now()}, error={e}')
-                raise Exception(f'deepseek-coder 连续调用失败, error={e}')
-            time.sleep(5)
+            time.sleep(20)
 
-    raise Exception("Max retries exceeded. Unable to call deepseek-coder.")
 
 
 def call_codellama(messages_ori, temp=0.8, model=config["model"]):
@@ -160,10 +159,8 @@ def call_codellama(messages_ori, temp=0.8, model=config["model"]):
             max_call -= 1
             if max_call == 0:
                 send_email(f'codellama 连续调用失败, model={model}, time={datetime.now()}, error={e}')
-                raise Exception(f'codellama 连续调用失败, error={e}')
-            time.sleep(5)
+            time.sleep(20)
 
-    raise Exception("Max retries exceeded. Unable to call codellama.")
 
 
 def redirect_save_path(save_path):

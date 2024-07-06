@@ -25,7 +25,7 @@ def parse_tokens(__code: str):
 
 
 def load_jsonl(path) -> list[dict]:
-    with open(path) as f:
+    with open(path, 'r', encoding='utf-8') as f:
         data = []
         for line in f:
             data.append(json.loads(line))
