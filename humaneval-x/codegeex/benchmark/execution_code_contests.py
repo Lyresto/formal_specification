@@ -89,7 +89,7 @@ def check_correctness(
                     for i, tc in enumerate(testcases):
                         tc_input, tc_output = tc
                         process = subprocess.Popen(['python', 'test.py'], stdin=subprocess.PIPE,
-                                                    stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                                                   stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
                         out, err = process.communicate(input=tc_input)
                         if len(err) == 0:
                             print(f'\n<TESTCASE OUTPUT {i}>\n{out.strip()}\n</TESTCASE OUTPUT {i}>\n')
@@ -234,7 +234,7 @@ def check_correctness(
                         for i, tc in enumerate(testcases):
                             tc_input, tc_output = tc
                             process = subprocess.Popen(['./a.out'], stdin=subprocess.PIPE,
-                                                        stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                                                       stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
                             out, err = process.communicate(input=tc_input)
                             if len(err) == 0:
                                 print(f'\n<TESTCASE OUTPUT {i}>\n{out.strip()}\n</TESTCASE OUTPUT {i}>\n')
@@ -353,7 +353,7 @@ def check_correctness(
                         for i, tc in enumerate(testcases):
                             tc_input, tc_output = tc
                             process = subprocess.Popen([f'java', '-cp', tmp_dir, 'Main'], stdin=subprocess.PIPE,
-                                                        stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                                                       stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
                             out, err = process.communicate(input=tc_input)
                             if len(err) == 0:
                                 print(f'\n<TESTCASE OUTPUT {i}>\n{out.strip()}\n</TESTCASE OUTPUT {i}>\n')
