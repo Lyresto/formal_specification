@@ -20,8 +20,9 @@ def parse_tokens(__code: str):
     try:
         return list(tokenize.tokenize(BytesIO(__code.encode('utf-8')).readline))[1:]
     except Exception as e:
-        print("[ERROR] syntax error:", e)
-        return [""]
+        if len(__code.split('\n')) == 1:
+            print("[ERROR] syntax error:", e)
+        return parse_tokens('\n'.join(__code.split('\n')[:-1]))
 
 
 def load_jsonl(path) -> list[dict]:
@@ -296,12 +297,16 @@ def judge_code(__testcases, __specification, __solution):
         return [(*__tc, [None], f'{e}') for __tc in __testcases]
 
 
+def remove_space(s):
+    return ''.join(s.strip().split(' '))
+
+
 def extract_completed_code(__raw_code, __info):
     if dataset in ['humaneval', 'humaneval-x']:
-        func_sign_prefix = __info["func_sign"].split('(')[0].strip()
+        func_sign_prefix = __info["func_sign"].split('(')[0].strip() + '('
         filtered_lines = []
         for line in __raw_code.split('\n')[::-1]:
-            if line.strip().startswith(func_sign_prefix):
+            if remove_space(func_sign_prefix) in remove_space(line) and '`' not in line:
                 break
             filtered_lines.append(line)
         filtered_lines = filtered_lines[::-1]
@@ -470,7 +475,7 @@ def extract_function(__content, __func_name, keep_intact=False):
             if indents == 0:
                 end.append(token.start)
                 find_func = False
-    lines = __content.split('\n')[start[-1][0] - 1: end[-1][0] - 1]
+    lines = __content.split('\n')[start[len(end) - 1][0] - 1: end[-1][0] - 1]
     if keep_intact:
         return '\n'.join(lines)
     lines = list(filter(lambda l: not l.strip().startswith('print('), lines))
