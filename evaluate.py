@@ -111,7 +111,7 @@ def evaluate():
                 matches = re.match('timeout = (.+?)_(.+)', out)
                 timer = Timer(int(float(matches.group(1))), matches.group(2))
             elif out.startswith('[RESULT'):
-                matches = re.match('\\[RESULT_(.+)_(.+?)] (.*)', out)
+                matches = re.match('\\[RESULT_(.+)_(\\d+?)] (.*)', out)
                 task_id = matches.group(1).strip()
                 completion_id = int(matches.group(2).strip())
                 output = ast.literal_eval(matches.group(3).strip())
