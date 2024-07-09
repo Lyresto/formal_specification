@@ -5,10 +5,10 @@ import pandas as pd
 from chatgpt import start_conversation, load_intermediate_results
 from config import config
 from parse import check_generated_testcase, extract_specification, check_specification, parse_testcase, \
-    load_jsonl, get_data_info, judge_code_v2
+    load_jsonl, get_data_info, judge_code_v2, parse_testcase_v2
 from prompts import specification_prompt, requirement_refine_prompt, testcase_prompt, code_prompt_for_iteration, \
     natural_language_specification_prompt, constraints_modify_prompt_for_proper_testcase, \
-    constraints_modify_prompt_for_improper_testcase
+    constraints_modify_prompt_for_improper_testcase, initial_prompt
 
 item_idx = 0
 
@@ -171,7 +171,7 @@ def get_specifications(idx, prompt, standard_testcase, param_names):
     return specifications
 
 
-def get_generated_testcase(idx, prompt, standard_testcase):
+def get_generated_testcase(idx, prompt, standard_testcase, entrypoint):
     max_trials = 5
     trials = 0
     minimum_testcases = 5
@@ -185,7 +185,7 @@ def get_generated_testcase(idx, prompt, standard_testcase):
             raw_testcase = conversation.chat(
                 testcase_prompt(prompt, standard_testcase[0] if len(standard_testcase) > 0 else None)
             )
-        raw_testcase = parse_testcase(raw_testcase)
+        raw_testcase = parse_testcase_v2(raw_testcase, entrypoint)
         trials += 1
         if len(raw_testcase) >= minimum_testcases or trials >= max_trials:
             break
@@ -213,7 +213,7 @@ def get_solution(idx, info, specification, generate_testcases):
             count += 1
         code = conversation.messages[-1]["content"]
     else:
-        code = conversation.chat(prompt)
+        code = conversation.chat(initial_prompt(prompt, info["language"]))
     while True:
         judge_result, comp_code = judge_code_v2(generate_testcases, specification, code, info)
         log("failed testcases:", judge_result)
@@ -251,7 +251,7 @@ def main():
 
         intermediate_results = load_intermediate_results(f'conversation/{middle_path}/intermediate/{item_idx}.pkl')
         if not intermediate_results.has_results():
-            generated_testcase = get_generated_testcase(item_idx, python_prompt, standard_testcases)
+            generated_testcase = get_generated_testcase(item_idx, python_prompt, standard_testcases, info["entrypoint"])
             specifications = get_specifications(item_idx, python_prompt, standard_testcases, info["param_names"])
             final_specification, filtered_testcases = \
                 choose_specification_and_testcase(specifications, generated_testcase)

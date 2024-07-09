@@ -310,6 +310,16 @@ def constraints_modify_prompt_for_improper_testcase(param_names, testcase_info):
     return prompt
 
 
+def initial_prompt(description, language):
+    if dataset in ['humaneval', 'humaneval-x']:
+        prompt = "Please implement this function according to its description:\n\n" + description
+    elif dataset == 'code_contests':
+        prompt = description + f"\n\nPlease use {language} language to solve this problem."
+    else:
+        raise NotImplementedError()
+    return prompt
+
+
 def requirement_refine_prompt(problem):
     # No need to describe format for humaneval
     if dataset in ['humaneval', 'humaneval-x']:
