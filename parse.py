@@ -67,11 +67,6 @@ def check_func_param_and_return(__code, __entrypoint):
     return len(__params) > 1, False, __params
 
 
-def initial_prompt_for_code_contests(description, language):
-    prompt = description + f"\n\nPlease use {language} language to solve this problem."
-    return prompt
-
-
 def get_data_info(idx, item):
     if dataset in ["humaneval", "humaneval-x"]:
         task_id = item["task_id"]
@@ -90,11 +85,10 @@ def get_data_info(idx, item):
                 load_jsonl('data/humaneval-x.jsonl')[656 + idx]["declaration"], language)
         standard_testcases = parse_standard_testcase(item["example_IO"])
     elif dataset == 'code_contests':
-        info = {"param_names": ["case_in"]}
+        info = {"param_names": ["case_in"], "entrypoint": None}
         task_id = item["name"]
         language = config["language_for_code_contests"]
-        python_prompt = item["description"]
-        prompt = initial_prompt_for_code_contests(item["description"], language)
+        python_prompt = prompt = item["description"]
         standard_testcases = parse_standard_testcase(item["public_tests"])
     else:
         raise NotImplementedError()
@@ -255,7 +249,9 @@ def check_generated_testcase(__testcases, __specification):
         return [0] * len(__testcases)
 
 
+# deprecated
 def parse_testcase(__testcases):
+    warnings.warn("deprecated.")
     try:
         parsed_testcases = run_template(extract_testcase(__testcases), None, "generated", "testcase_parse")
         if dataset == 'code_contests':
@@ -270,6 +266,53 @@ def parse_testcase(__testcases):
         return parsed_testcases
     except RuntimeError:
         return []
+
+
+def cut_closed_parentheses(string):
+    parentheses_map = {
+        '(': ('(', ')'),
+        '[': ('[', ']'),
+        '{': ('{', '}'),
+    }
+    if string[0] not in parentheses_map:
+        return string.split(',')[0]
+    if string[0] in ['"', "'"]:
+        return string[:string.find(string[0], 1) + 1]
+    left_parentheses, right_parentheses = parentheses_map[string[0]]
+    depth = 0
+    for i, ch in enumerate(string):
+        if ch == left_parentheses:
+            depth += 1
+        elif ch == right_parentheses:
+            depth -= 1
+        if depth == 0:
+            return string[:i + 1]
+    return ''
+
+
+def parse_testcase_v2(__raw_testcases, __entrypoint):
+    parsed_testcases = []
+    if dataset in ['humaneval', 'humaneval-x']:
+        matches = re.findall(f'\\nassert\\s+{__entrypoint}(\\(.+\\))\\s*==\\s*(.+)', '\n' + __raw_testcases)
+        for match in matches:
+            try:
+                params = eval(match[0])
+                if isinstance(params, tuple):
+                    params = list(params)
+                else:
+                    params = [params]
+                return_value = eval(cut_closed_parentheses(match[1]))
+                parsed_testcases.append((params, [return_value]))
+            except (SyntaxError, NameError):
+                pass
+    elif dataset == 'code_contests':
+        matches = re.findall('<input>\n(.+?)\n</input>.*\n.*<output>\n(.+?)\n</output>', __raw_testcases, re.DOTALL)
+        for match in matches:
+            parsed_testcases.append((
+                [parse_terminal_io(match[0])],
+                [parse_terminal_io(match[1])]
+            ))
+    return parsed_testcases
 
 
 def extract_testcase(__raw_testcases):
@@ -403,7 +446,10 @@ def judge_code_v2(__testcases, __specification, __raw_code, __info):
         triphase_testcases = [([tc[0]], [tc[1]], [to_terminal_io(sol_out)]) for tc, sol_out in zip(testcases_str, solution_outputs)]
     else:
         raise NotImplementedError()
-    return run_template(triphase_testcases, __specification, "triphase", "code_judge_2"), completed_code
+    try:
+        return run_template(triphase_testcases, __specification, "triphase", "code_judge_2"), completed_code
+    except RuntimeError:
+        return [], completed_code
 
 
 def package_solution(__prompt, __code, __entrypoint):
@@ -508,9 +554,7 @@ def parse_terminal_io(io: str):
     def __convert_str_2_var(s):
         try:
             return ast.literal_eval(s)
-        except ValueError:
-            return s
-        except SyntaxError:
+        except (SyntaxError, ValueError):
             return s
 
     for line in io.split('\n'):

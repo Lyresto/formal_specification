@@ -11,4 +11,4 @@ def check_docker():
         raise RuntimeError('Docker is not launched or running normally!')
 
 
-check_docker()
+#check_docker()

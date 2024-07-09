@@ -137,7 +137,7 @@ if __name__ == '__main__':
     # Config
     dataset = 'humaneval'
     language = 'python'
-    generation_path = 'result/humaneval_groundtruth.jsonl'
+    generation_path = '../hallucination_new/result/gpt-4/HumanEval/generation_extracted.jsonl'
     print(f'Evaluate {generation_path} of {dataset} dataset using {language} language.')
 
     if dataset in ['humaneval', 'humaneval-x']:
