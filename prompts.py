@@ -144,12 +144,15 @@ Each tuple in `test_cases` contains two parts: case_in and case_out, both of whi
     else:
         raise NotImplementedError()
 
-    return f"""Given a question, you need to write several CERTAINLY CORRECT testcases for checking the correctness of the code implementation about the functionality of the given question. Please do not duplicate the Example IO given in the question. You are required to generate 20 sets of absolutely correct test cases that comprehensively validate the implementation's functionality under various conditions, including 4 types for 5 pieces each: functional and logical correctness test cases ,special situation test cases, boundary and stress test cases and completely random data test cases. The elements in each test case can only consist of two parts named 'caseIn' and 'caseOut'. Please also annotate each test case with detailed comments. Again, all you need to do and you can do is to return me only an array called test_cases.
+    return f"""Given a question, you need to write several CERTAINLY CORRECT testcases for checking the correctness of the code implementation about the functionality of the given question. Please do not duplicate the Example IO given in the question. You are required to generate 20 sets of absolutely correct test cases that comprehensively validate the implementation's functionality under various conditions, including 4 types for 5 pieces each: functional and logical correctness test cases ,special situation test cases, boundary and stress test cases and completely random data test cases.
 Here is an example: 
 {get_example_problem()}
 {example_generated_testcase}
-Now, please provide the test cases for the following problem. Please do not duplicate the Example I0 given in the problem description.
 Do not use undefined functions, such as 'random' and 'string'. 
+Avoid syntax errors of any kind in testcases.
+You can only output the code. Do not include any natural language descriptions except in annotation.
+Again, all you need to do and you can do is to return me only an array called 'test_cases'.
+Now, please provide the test cases for the following problem.
 # Problem:
 {problem.strip()}
 
@@ -245,6 +248,12 @@ def postconditions(l, output):
     num_less = sum([1 for i in l if i <= output])
     assert num_greater == num_less, "Counts of elements greater than or equal to 'output' and less than or equal to 'output' are not equal."
 """
+        fill_preconditions = f"""def preconditions({', '.join(param_names)}):
+# TODO: fill in 'preconditions({', '.join(param_names)})'.
+"""
+        fill_postconditions = f"""def postconditions({', '.join(param_names)}):
+# TODO: fill in 'postconditions({', '.join(param_names)}, {get_output_name()})'.
+"""
     elif dataset == 'code_contests':
         example_specification = """# Example specification:
 def preconditions(case_in):
@@ -285,6 +294,17 @@ def postconditions(case_in, case_out):
         if x != d:
             assert l <= d <= r and l <= (x - d) <= r, f"Result x of the {idx + 1}th query is not the minimum positive integer that meets the requirements."
 """
+        fill_preconditions = f"""def preconditions({', '.join(param_names)}):
+    assert isinstance(case_in, str), "Input is not a string."
+    case_in_lines = case_in.split('\\n')
+    # TODO: Continue to fill in 'preconditions({', '.join(param_names)})'.
+"""
+        fill_postconditions = f"""def postconditions({', '.join(param_names)}, {get_output_name()}):
+    assert isinstance(case_out, str), "Output is not a string."
+    case_in_lines = case_in.split('\\n')
+    case_out_lines = case_out.split('\\n')
+    # TODO: Continue to fill in 'postconditions({', '.join(param_names)}, {get_output_name()})'.
+"""
 
     else:
         raise NotImplementedError()
@@ -302,30 +322,23 @@ Non-defined variables and functions in the specification is NOT permitted ! Unre
 """
     else:
         start_prompt = f"""Now please translate the constraints you provided earlier into Python specification, and print detailed error information when encountering assertion errors.
-Here is an example after translating:
+Here is an example python specification after translating the example constraints:
 {example_specification.strip()}
+
+
+Pay attention that, the example code above just explains how to translate constraints into the python specification, and it doesn't apply to other problems. You need to generate specification according to the specific problem.
+In other word, do NOT repeat the 'Example specification' code mentioned above! 
 """
 
     return f"""{start_prompt}
 # Specification:
 {example_testcase_prompt[0]}
-def preconditions({', '.join(param_names)}):
-    #----------------you should ALWAYS begin with----------
-    assert isinstance(case_in, str), "Input is not a string."
-    case_in_lines = case_in.split('\\n')
-    #----------------end-----------------------------------
-    # TODO: Continue to fill in preconditions
-
+{fill_preconditions}
 {example_testcase_prompt[1]}
-def postconditions({', '.join(param_names)}, {get_output_name()}):
-    #----------------you should ALWAYS begin with-------------
-    assert isinstance(case_out, str), "Output is not a string."
-    case_in_lines = case_in.split('\\n')
-    case_out_lines = case_out.split('\\n')
-    #----------------end-------------------------------------
-    # TODO: Continue to fill in postconditions
+{fill_postconditions}
 
 Please ensure that the syntax of the specification is CORRECT and can be COMPILED and RUN successfully.Non-defined variables and functions in the specification is NOT permitted ! Unresolved property references to a class CANNOT appear in the specification! For example,do not use the 'isdigit()' function on variables of type 'int'.    
+Again, You can't just copy the example specification code.
 Now start translating the constraints you provided earlier into Python specification.
 """
 

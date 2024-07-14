@@ -10,7 +10,7 @@ import warnings
 from io import BytesIO
 from typing import Any
 
-from config import config
+from config import config, check_docker
 from template.test_code import package_test_code
 
 dataset = config["dataset"]
@@ -305,6 +305,8 @@ def extract_completed_code(__raw_code, __info):
     if dataset in ['humaneval', 'humaneval-x']:
         func_sign_prefix = __info["func_sign"].split('(')[0].strip() + '('
         filtered_lines = []
+        if __raw_code is None:
+            return __raw_code
         for line in __raw_code.split('\n')[::-1]:
             if remove_space(func_sign_prefix) in remove_space(line) and '`' not in line:
                 break
@@ -359,6 +361,7 @@ def judge_code_v2(__testcases, __specification, __raw_code, __info):
                      f"{docker_base_dir}/codegeex/benchmark/humaneval-x/evaluate_humaneval_x.py",
                "rishubi/codegeex", "bash", "-c",
                f'{docker_base_dir}/scripts/evaluate_humaneval_x.sh {docker_base_dir}/data.jsonl {language} 4']
+        check_docker()
         process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
         while True:
             out = process.stdout.readline().decode('utf8').strip()
@@ -392,6 +395,7 @@ def judge_code_v2(__testcases, __specification, __raw_code, __info):
                      f"{docker_base_dir}/codegeex/benchmark/humaneval-x/evaluate_humaneval_x.py",
                "rishubi/codegeex", "bash", "-c",
                f'{docker_base_dir}/scripts/evaluate_humaneval_x.sh {docker_base_dir}/data.jsonl {language} 4']
+        check_docker()
         process = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                    stderr=subprocess.PIPE, shell=True, text=True)
         out, err = process.communicate()
@@ -404,7 +408,10 @@ def judge_code_v2(__testcases, __specification, __raw_code, __info):
                               zip(testcases_str, solution_outputs)]
     else:
         raise NotImplementedError()
-    return run_template(triphase_testcases, __specification, "triphase", "code_judge_2"), completed_code
+    try:
+        return run_template(triphase_testcases, __specification, "triphase", "code_judge_2"), completed_code
+    except RuntimeError:
+        return [], completed_code
 
 
 def package_solution(__prompt, __code, __entrypoint):

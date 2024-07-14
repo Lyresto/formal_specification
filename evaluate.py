@@ -135,9 +135,9 @@ def evaluate():
 
 if __name__ == '__main__':
     # Config
-    dataset = 'code_contests'
+    dataset = 'humaneval'
     language = 'python'
-    generation_path = 'result/humaneval_groundtruth.jsonl'
+    generation_path = 'result/humaneval_codeLlama-34b-Instruct-hf-baseline.jsonl'
     print(f'Evaluate {generation_path} of {dataset} dataset using {language} language.')
 
     if dataset in ['humaneval', 'humaneval-x']:

@@ -13,6 +13,8 @@ import requests
 
 from config import config
 from transformers import pipeline
+from gradio_client import Client
+from huggingface_hub import InferenceClient
 
 chat_gpt_key = config['chat_gpt_key']
 openai.api_key = chat_gpt_key
@@ -38,7 +40,7 @@ class Conversation:
         if self.model.startswith("gpt"):
             resp = call_gpt(msg, self.temp, self.model)
         else:
-            resp = call_codellama(self.messages, self.temp, self.model)
+            resp = call_codellama_client(self.messages, self.temp, self.model)
         self.messages.append({"role": "assistant", "content": resp})
         if len(self.messages) > 20:
             self.messages = self.messages[1:]
@@ -127,6 +129,79 @@ def call_deepseek_coder(messages_ori, temp=0.8, model=config["model"]):
             time.sleep(20)
 
 
+def call_deepseek_client(messages_ori, temp=0.8, model=config["model"]):
+    print(f'[INFO] call codellama, temp = {temp}, model = {model}', end='......')
+
+    dialog_history = "<s>[INST] <<SYS>>\nYou are a helpful, respectful and honest assistant. Always answer as helpfully as possible, while being safe. Your answers should not include any harmful, unethical, racist, sexist, toxic, dangerous, or illegal content. Please ensure that your responses are socially unbiased and positive in nature.\nIf a question does not make any sense, or is not factually coherent, explain why instead of answering something not correct. If you don't know the answer to a question, please don't share false information.\n<</SYS>>\n\n"
+
+    for i, msg in enumerate(messages_ori):
+        if msg['role'] == 'user':
+            dialog_history += f"{msg['content']} [/INST] "
+        else:
+            dialog_history += f"{msg['content']} </s><s>[INST] "
+
+    client = Client("https://deepseek-ai-deepseek-coder-7b-instruct.hf.space/--replicas/tcit2/")
+
+    max_call = 20
+    while max_call > 0:
+        try:
+            response = client.predict({
+                dialog_history,
+                dialog_history,
+                2048,
+                0.95,
+                temp,
+            })
+            print('get response!')
+            return extract_bot_response(response)
+
+        except Exception as e:
+            print('[ERROR]', e)
+            print("[ERROR] fail to call codellama, trying again...")
+            max_call -= 1
+            if max_call == 0:
+                send_email(f'codellama 连续调用失败, model={model}, time={datetime.now()}, error={e}')
+            time.sleep(30)
+
+
+def call_codellama_client(messages_ori, temp=0.8, model=config["model"]):
+    print(f'[INFO] call codellama, temp = {temp}, model = {model}', end='......')
+
+    max_call = 20
+
+    while True:
+        try:
+            client = InferenceClient(
+                "codellama/CodeLlama-34b-Instruct-hf",
+                token="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",
+            )
+            bot_responses = []
+            for message in client.chat_completion(
+                    messages=messages_ori,
+                    max_tokens=2048,
+                    temperature=temp,
+                    top_p=0.95,
+                    stream=True,
+            ):
+                if not message or not message.choices:
+                    print(f'[ERROR] Invalid message structure: {message}')
+                    continue
+                bot_responses.append(message.choices[0].delta.content)
+            break
+        except Exception as e:
+            print('[ERROR]', e)
+            print("[ERROR] fail to call codellama, trying again...")
+            if "429 Client Error: Too Many Requests" in str(e):
+                print("[INFO] Too many requests error. Sleeping for 1 hour...")
+                time.sleep(1800)  # Sleep for 1 hour
+            else:
+                max_call -= 1
+                if max_call == 0:
+                    send_email(f'codellama连续调用失败, model={model}, time={datetime.now()}, error={e}')
+                time.sleep(2)
+    print('get response!')
+    return "".join(bot_responses)
+
 
 def call_codellama(messages_ori, temp=0.8, model=config["model"]):
     print(f'[INFO] call codellama, temp = {temp}, model = {model}', end='......')
@@ -139,7 +214,7 @@ def call_codellama(messages_ori, temp=0.8, model=config["model"]):
         else:
             dialog_history += f"{msg['content']} </s><s>[INST] "
 
-    max_call = 20
+    max_call = 100
     while max_call > 0:
         try:
             response = query({
@@ -159,8 +234,7 @@ def call_codellama(messages_ori, temp=0.8, model=config["model"]):
             max_call -= 1
             if max_call == 0:
                 send_email(f'codellama 连续调用失败, model={model}, time={datetime.now()}, error={e}')
-            time.sleep(20)
-
+            time.sleep(10)
 
 
 def redirect_save_path(save_path):
