@@ -22,5 +22,5 @@ humaneval-x/codegeex/benchmark/*
 *.md
 !README.md
 data/code_contests/testset.parquet
-!data/code_contests.jsonl
-!data/code_contests_test.jsonl
+data/code_contests.jsonl
+data/code_contests_test.jsonl
