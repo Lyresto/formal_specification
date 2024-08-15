@@ -10,17 +10,25 @@ from email.mime.text import MIMEText
 import pickle as pkl
 import openai
 import requests
-
+import os
 from config import config
 from transformers import pipeline
 from gradio_client import Client
 from huggingface_hub import InferenceClient
+import requests
+
+ip_address = '62.234.188.176'
+port = 8888
+url = f'http://{ip_address}:{port}'
 
 chat_gpt_key = config['chat_gpt_key']
 openai.api_key = chat_gpt_key
 API_URL = config['huggingface_API_URL']
-headers = config['huggingface_headers']
-
+#headers = config['huggingface_headers']
+headers = {
+    'Content-Type': 'application/json',
+    'User-Agent': 'my-python-client'
+}
 
 class Conversation:
     def __init__(self, save_path=None, temp=0.8, model=config["model"]):
@@ -37,9 +45,11 @@ class Conversation:
                 msg.append(self.messages[idx])
         self.messages.append({"role": "user", "content": prompt})
         msg.append(self.messages[-1])
-        if self.model.startswith("gpt"):
+        if self.model.lower().startswith("gpt"):
             resp = call_gpt(msg, self.temp, self.model)
-        else:
+        elif self.model.lower().startswith("deepseek"):
+            resp = call_deepseek(msg, self.temp, self.model)
+        elif self.model.lower().startswith("codellama"):
             resp = call_codellama_client(self.messages, self.temp, self.model)
         self.messages.append({"role": "assistant", "content": resp})
         if len(self.messages) > 20:
@@ -74,6 +84,35 @@ def call_gpt(message, temp=0.8, model=config["model"]):
     print('get response!')
     return response['choices'][0]['message']['content']
 
+def call_deepseek(message, temp=0.8, model=config["model"]):
+    print(f'[INFO] call deepseekcoder, temp = {temp}, model = {model}', end='......')
+    if type(message) == str:
+        message = [{"role": "user", "content": message}]
+    max_call = 20
+    while True:
+        try:
+            data = {
+                "message": message,
+                "temperature": 0.8,
+                "max_new_tokens": 2048
+            }
+            response = requests.post(url, json=data, headers=headers, verify=False, proxies={})
+            if response.status_code == 200:
+                print('get response!')
+                return response.json().get('output')
+            else:
+                print('Failed to send data:', response.status_code)
+                max_call -= 1
+                if max_call == 0:
+                    send_email(f'GPT连续调用失败, model={model}, time={datetime.now()}, error={e}')
+                time.sleep(2)
+        except Exception as e:
+            print('[ERROR]', e)
+            print("[ERROR] fail to call gpt, trying again...")
+            max_call -= 1
+            if max_call == 0:
+                send_email(f'GPT连续调用失败, model={model}, time={datetime.now()}, error={e}')
+            time.sleep(2)
 
 # Mock the `query` function to simulate the AI model response
 def query(payload):
@@ -140,7 +179,7 @@ def call_deepseek_client(messages_ori, temp=0.8, model=config["model"]):
         else:
             dialog_history += f"{msg['content']} </s><s>[INST] "
 
-    client = Client("https://deepseek-ai-deepseek-coder-7b-instruct.hf.space/--replicas/tcit2/")
+    client = Client("https://deepseek-ai-deepseek-coder-7b-instruct.hf.space/--replicas/4yqv6/")
 
     max_call = 20
     while max_call > 0:

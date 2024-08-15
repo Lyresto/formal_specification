@@ -93,65 +93,111 @@ def get_output_name():
 def testcase_prompt(problem, example_testcase):
     if example_testcase is not None:
         if dataset == 'code_contests':
-            example_testcase = (example_testcase[0][0], example_testcase[1][0])
-        example_testcase_prompt = f'For this problem, an example IO tuple can be represented as: {example_testcase}'
+            example_testcase_prompt = (
+                f'For this problem, an example IO tuple can be represented as: 'f'\n<input>\n{to_terminal_io(example_testcase[0][0],True)}\n</input>\n <output>\n{to_terminal_io(example_testcase[1][0],True)}\n</output>')
+        elif dataset in ['humaneval', 'humaneval-x']:
+            example_testcase_prompt = ''
+
     else:
         example_testcase_prompt = ''
     if dataset in ['humaneval', 'humaneval-x']:
         example_generated_testcase = """# Example test case:
-test_cases = [
     # basic function test cases
-    ([[-10,4,6,1000,10,20]],[8.0]),
-    ([1,2,3,4,5],[3.0]),
-    ([[10, 2, 38, 23, 38, 23, 21]],[23.0]),
-    ([[4, 1, 2, 3]],[2.5]),
+    assert median([-10,4,6,1000,10,20]) == 8.0
+    assert median([1,2,3,4,5]) == 3.0
+    assert median([10, 2, 38, 23, 38, 23, 21]) == 23.0
+    assert median([4, 1, 2, 3]) == 2.5
     # special situation test cases
-    ([[1,1,1,1]],[1.0]),
-    ([[1]],[1.0]),
-    ([[-10, -20, -30, -40, -50]],[-30.0]),
+    assert median([1,1,1,1]) == 1.0
+    assert median([1]) == 1.0
+    assert median([-10, -20, -30, -40, -50]) == -30.0
     # boundary and stress test cases
-    ([[i for i in range(1, 10001)]],[5000.5]),
-    ([[1] * 5000 + [2] * 5000],[1.5]),
+    assert median([i for i in range(1, 10001)]) == 5000.5
+    assert median([[1] * 5000 + [2] * 5000]) == 1.5
     # random test cases
-    ([[3, 1, 4, 1, 5, 9, 2, 6, 5, 3, 5]],[4.0]),
-    ([[15, 20, 35, 40, 50]],[35.0])
+    assert median([3, 1, 4, 1, 5, 9, 2, 6, 5, 3, 5]) == 4.0
+    assert median([15, 20, 35, 40, 50]) == 35.0
     
-]
-    
-Each tuple in `test_cases` contains two parts: case_in and case_out, both of which are lists. Each element in the lists corresponds to a parameter/return value of the function. For example, the first example IO in the problem description can be represented as: ([[3, 1, 2, 4, 5]], [3])
+
 """
     elif dataset == 'code_contests':
         example_generated_testcase = """# Example Test case:
-test_cases = [
-    # basic function test cases
-    ([[1], [78, 79, 79]], [[158]]),
-    ([[1], [6, 6, 6]], [[12]]),
-    ([[1], [79, 80, 100]], [[100]]),
-    # special situation test cases
-    ([[1], [1, 1, 123456789]], [[123456789]]),
-    ([[1], [80, 100, 1]], [[1]]),
-    ([[5], [1000000000, 1000000000, 1], [1000000000, 1000000000, 1], [1000000000, 1000000000, 1], [1000000000, 1000000000, 1], [1000000000, 1000000000, 1]], [[1], [1], [1], [1], [1]]),
-    # boundary and stress test cases
-    ([[20], [1, 1000000000, 2], [1, 1000000000, 2], [1, 1000000000, 2], [1, 1000000000, 2], [1, 1000000000, 2], [1, 1000000000, 2], [1, 1000000000, 2], [1, 1000000000, 2], [1, 1000000000, 2], [1, 1000000000, 2], [1, 1000000000, 2], [1, 1000000000, 2], [1, 1000000000, 2], [1, 1000000000, 2], [1, 1000000000, 2], [1, 1000000000, 2], [1, 1000000000, 2], [1, 1000000000, 2], [1, 1000000000, 2], [1, 1000000000, 2]], [[1000000002], [1000000002], [1000000002], [1000000002], [1000000002], [1000000002], [1000000002], [1000000002], [1000000002], [1000000002], [1000000002], [1000000002], [1000000002], [1000000002], [1000000002], [1000000002], [1000000002], [1000000002], [1000000002], [1000000002]]),
-    ([[25], [1, 1000000000, 1], [1, 1000000000, 1000000000], [2, 1000000000, 1], [1, 999999999, 1000000000], [5, 6, 5], [1, 1000000000, 1], [1, 1000000000, 1000000000], [2, 1000000000, 1], [1, 999999999, 1000000000], [5, 6, 5], [1, 1000000000, 1], [1, 1000000000, 1000000000], [2, 1000000000, 1], [1, 999999999, 1000000000], [5, 6, 5], [1, 1000000000, 1], [1, 1000000000, 1000000000], [2, 1000000000, 1], [1, 999999999, 1000000000], [5, 6, 5], [1, 1000000000, 1], [1, 1000000000, 1000000000], [2, 1000000000, 1], [1, 999999999, 1000000000], [5, 6, 5]], [[1000000001], [2000000000], [1], [1000000000], [10], [1000000001], [2000000000], [1], [1000000000], [10], [1000000001], [2000000000], [1], [1000000000], [10], [1000000001], [2000000000], [1], [1000000000], [10], [1000000001], [2000000000], [1], [1000000000], [10]]),
-    # random test cases
-    ([[5], [80, 100, 10], [5, 10, 4], [3, 10, 1], [1, 2, 3], [4, 6, 5]], [[10], [4], [1], [3], [10]]),
-    ([[1], [1, 1000000000, 1017]], [[1000000845]])
-]
 
-Each tuple in `test_cases` contains two parts: case_in and case_out, both of which are 2D lists. Each element list in the 2D lists corresponds to an input/output line, and each element in the element lists corresponds to a string/number separated by a space in an input/output line. For example, the example IO in the problem description can be represented as: ([[5], [2, 4, 2], [10, 4], [10, 1], [2, 3], [6, 5]], [[6], [4], [1], [3], [10]])
+<input>
+# basic function test cases
+1\n78 79 79
+</input>
+<output>
+158
+</output>
+<input>
+1\n6 6 6
+</input>
+<output>
+12
+</output>
+<input>
+1\n79 80 100
+</input>
+<output>
+100
+</output>
+<input>
+1\n1 1 123456789
+</input>
+<output>
+123456789
+</output>
+<input>
+1\n80 100 1
+</input>
+<output>
+1
+</output>
+<input>
+5\n1000000000 1000000000 1\n1000000000 1000000000 1\n1000000000 1000000000 1\n1000000000 1000000000 1\n1000000000 1000000000 1
+</input>
+<output>
+1\n1\n1\n1\n1
+</output>
+<input>
+20\n1 1000000000 2\n1 1000000000 2\n1 1000000000 2\n1 1000000000 2\n1 1000000000 2\n1 1000000000 2\n1 1000000000 2\n1 1000000000 2\n1 1000000000 2\n1 1000000000 2\n1 1000000000 2\n1 1000000000 2\n1 1000000000 2\n1 1000000000 2\n1 1000000000 2\n1 1000000000 2\n1 1000000000 2\n1 1000000000 2\n1 1000000000 2
+</input>
+<output>
+1000000002\n1000000002\n1000000002\n1000000002\n1000000002\n1000000002\n1000000002\n1000000002\n1000000002\n1000000002\n1000000002\n1000000002\n1000000002\n1000000002\n1000000002\n1000000002\n1000000002\n1000000002\n1000000002\n1000000002
+</output>
+<input>
+25\n1 1000000000 1\n1 1000000000 1000000000\n2 1000000000 1\n1 999999999 1000000000\n5 6 5\n1 1000000000 1\n1 1000000000 1000000000\n2 1000000000 1\n1 999999999 1000000000\n5 6 5\n1 1000000000 1\n1 1000000000 1000000000\n2 1000000000 1\n1 999999999 1000000000\n5 6 5\n1 1000000000 1\n1 1000000000 1000000000\n2 1000000000 1\n1 999999999 1000000000\n5 6 5\n1 1000000000 1\n1 1000000000 1000000000\n2 1000000000 1\n1 999999999 1000000000\n5 6 5
+</input>
+<output>
+1000000001\n2000000000\n1\n1000000000\n10\n1000000001\n2000000000\n1\n1000000000\n10\n1000000001\n2000000000\n1\n1000000000\n10\n1000000001\n2000000000\n1\n1000000000\n10\n1000000001\n2000000000\n1\n1000000000\n10
+</output>
+<input>
+5\n80 100 10\n5 10 4\n3 10 1\n1 2 3\n4 6 5
+</input>
+<output>
+10\n4\n1\n3\n10
+</output>
+<input>
+1\n1 1000000000 1017
+</input>
+<output>
+1000000845
+</output>
+
+
+Please output strictly according to the above format.
 """
     else:
         raise NotImplementedError()
 
-    return f"""Given a question, you need to write several CERTAINLY CORRECT testcases for checking the correctness of the code implementation about the functionality of the given question. Please do not duplicate the Example IO given in the question. You are required to generate 20 sets of absolutely correct test cases that comprehensively validate the implementation's functionality under various conditions, including 4 types for 5 pieces each: functional and logical correctness test cases ,special situation test cases, boundary and stress test cases and completely random data test cases.
+    return f"""Given a question, you need to write only 20 CERTAINLY CORRECT testcases for checking the correctness of the code implementation about the functionality of the given question. Please do not duplicate the Example IO given in the question. You are required to generate 20 sets of absolutely correct test cases that comprehensively validate the implementation's functionality under various conditions, including 4 types for 5 pieces each: functional and logical correctness test cases ,special situation test cases, boundary and stress test cases and completely random data test cases.
 Here is an example: 
 {get_example_problem()}
 {example_generated_testcase}
 Do not use undefined functions, such as 'random' and 'string'. 
 Avoid syntax errors of any kind in testcases.
 You can only output the code. Do not include any natural language descriptions except in annotation.
-Again, all you need to do and you can do is to return me only an array called 'test_cases'.
 Now, please provide the test cases for the following problem.
 # Problem:
 {problem.strip()}
@@ -408,6 +454,16 @@ def constraints_modify_prompt_for_improper_testcase(param_names, testcase_info):
         msg_item += f"{get_output_name()} = {case_out[0]}, this possibly incorrect testcase fully comply with the constraints."
         prompt += msg_item
     prompt += "\nPlease modify or add constraints so that these possibly incorrect test cases do not comply with the constraints. Provide ALL constraints obtained after modification!"
+    return prompt
+
+
+def initial_prompt(description, language):
+    if dataset in ['humaneval', 'humaneval-x']:
+        prompt = "Please implement this function according to its description:\n\n" + description
+    elif dataset == 'code_contests':
+        prompt = description + f"\n\nPlease use {language} language to solve this problem."
+    else:
+        raise NotImplementedError()
     return prompt
 
 
