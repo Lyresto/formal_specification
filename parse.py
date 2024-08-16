@@ -10,7 +10,7 @@ import warnings
 from io import BytesIO
 from typing import Any
 
-from config import config
+from config import config, check_docker
 from template.test_code import package_test_code
 
 dataset = config["dataset"]
@@ -23,7 +23,7 @@ def parse_tokens(__code: str):
         if len(__code.split('\n')) == 1:
             print("[ERROR] syntax error:", e)
         return parse_tokens('\n'.join(__code.split('\n')[:-1]))
-
+     
 
 def load_jsonl(path) -> list[dict]:
     with open(path) as f:
@@ -402,6 +402,7 @@ def judge_code_v2(__testcases, __specification, __raw_code, __info):
                      f"{docker_base_dir}/codegeex/benchmark/humaneval-x/evaluate_humaneval_x.py",
                "rishubi/codegeex", "bash", "-c",
                f'{docker_base_dir}/scripts/evaluate_humaneval_x.sh {docker_base_dir}/data.jsonl {language} 4']
+        check_docker()
         process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
         while True:
             out = process.stdout.readline().decode('utf8').strip()
@@ -435,6 +436,7 @@ def judge_code_v2(__testcases, __specification, __raw_code, __info):
                      f"{docker_base_dir}/codegeex/benchmark/humaneval-x/evaluate_humaneval_x.py",
                "rishubi/codegeex", "bash", "-c",
                f'{docker_base_dir}/scripts/evaluate_humaneval_x.sh {docker_base_dir}/data.jsonl {language} 4']
+        check_docker()
         process = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                    stderr=subprocess.PIPE, shell=True, text=True)
         out, err = process.communicate()
