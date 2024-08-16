@@ -9,12 +9,26 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 import pickle as pkl
 import openai
+import requests
+import os
 from config import config
+from transformers import pipeline
 from gradio_client import Client
+from huggingface_hub import InferenceClient
+import requests
+
+ip_address = '62.234.188.176'
+port = 8888
+url = f'http://{ip_address}:{port}'
 
 chat_gpt_key = config['chat_gpt_key']
 openai.api_key = chat_gpt_key
-
+API_URL = config['huggingface_API_URL']
+#headers = config['huggingface_headers']
+headers = {
+    'Content-Type': 'application/json',
+    'User-Agent': 'my-python-client'
+}
 
 class Conversation:
     def __init__(self, save_path=None, temp=0.8, model=config["model"]):
@@ -31,10 +45,12 @@ class Conversation:
                 msg.append(self.messages[idx])
         self.messages.append({"role": "user", "content": prompt})
         msg.append(self.messages[-1])
-        if self.model == "gpt-3.5-turbo":
+        if self.model.lower().startswith("gpt"):
             resp = call_gpt(msg, self.temp, self.model)
-        else:
-            resp = call_deepseek_coder(msg, self.temp, self.model)
+        elif self.model.lower().startswith("deepseek"):
+            resp = call_deepseek(msg, self.temp, self.model)
+        elif self.model.lower().startswith("codellama"):
+            resp = call_codellama_client(self.messages, self.temp, self.model)
         self.messages.append({"role": "assistant", "content": resp})
         if len(self.messages) > 20:
             self.messages = self.messages[1:]
@@ -68,39 +84,196 @@ def call_gpt(message, temp=0.8, model=config["model"]):
     print('get response!')
     return response['choices'][0]['message']['content']
 
-
-def call_deepseek_coder(messages, temp=0.8,
-                        model="https://deepseek-ai-deepseek-coder-7b-instruct.hf.space/--replicas/pzzcy/"):
-    print(f'[INFO] call deepseek coder, temp = {temp}, model = {model}')
-    if type(messages) == list and len(messages) > 0 and isinstance(messages[0], dict):
-        message = messages[0]['content']
-    else:
-        message = messages
-
-    client = Client(model)
+def call_deepseek(message, temp=0.8, model=config["model"]):
+    print(f'[INFO] call deepseekcoder, temp = {temp}, model = {model}', end='......')
+    if type(message) == str:
+        message = [{"role": "user", "content": message}]
     max_call = 20
     while True:
         try:
-            response = client.predict(
-                message,  # str in 'Message' Textbox component
-                "",  # str in 'System prompt' Textbox component
-                2048,  # int | float (numeric value between 1 and 2048) in 'Max new tokens' Slider component
-                0.05,  # int | float (numeric value between 0.05 and 1.0) in 'Top-p (nucleus sampling)' Slider component
-                100,  # int | float (numeric value between 1 and 1000) in 'Top-k' Slider component
-                1,  # int | float (numeric value between 1.0 and 2.0) in 'Repetition penalty' Slider component
-                api_name="/chat"
+            data = {
+                "message": message,
+                "temperature": 0.8,
+                "max_new_tokens": 2048
+            }
+            response = requests.post(url, json=data, headers=headers, verify=False, proxies={})
+            if response.status_code == 200:
+                print('get response!')
+                return response.json().get('output')
+            else:
+                print('Failed to send data:', response.status_code)
+                max_call -= 1
+                if max_call == 0:
+                    send_email(f'GPT连续调用失败, model={model}, time={datetime.now()}, error={e}')
+                time.sleep(2)
+        except Exception as e:
+            print('[ERROR]', e)
+            print("[ERROR] fail to call gpt, trying again...")
+            max_call -= 1
+            if max_call == 0:
+                send_email(f'GPT连续调用失败, model={model}, time={datetime.now()}, error={e}')
+            time.sleep(2)
+
+# Mock the `query` function to simulate the AI model response
+def query(payload):
+    response = requests.post(API_URL, headers=headers, json=payload)
+
+    return response.json()[0]['generated_text']
+
+
+def extract_bot_response(response):
+    model_replies = []
+    parts = response.split('</s><s>[INST] ')
+
+    for part in parts:
+        if '[/INST]' in part:
+            model_reply = part.split('[/INST] ')[1].strip()
+            model_replies.append(model_reply)
+
+    return model_replies[-1] if model_replies else None
+
+
+def call_deepseek_coder(messages_ori, temp=0.8, model=config["model"]):
+    print(f'[INFO] call codellama, temp = {temp}, model = {model}', end='......')
+
+    dialog_history = "<s>[INST] <<SYS>>\nYou are a helpful, respectful and honest assistant. Always answer as helpfully as possible, while being safe. Your answers should not include any harmful, unethical, racist, sexist, toxic, dangerous, or illegal content. Please ensure that your responses are socially unbiased and positive in nature.\nIf a question does not make any sense, or is not factually coherent, explain why instead of answering something not correct. If you don't know the answer to a question, please don't share false information.\n<</SYS>>\n\n"
+
+    for i, msg in enumerate(messages_ori):
+        if msg['role'] == 'user':
+            dialog_history += f"{msg['content']} [/INST] "
+        else:
+            dialog_history += f"{msg['content']} </s><s>[INST] "
+
+    max_call = 20
+    while max_call > 0:
+        try:
+            response = query({
+                "inputs": dialog_history,
+                "parameters": {
+                    "max_new_tokens": 2048,
+                    "temperature": temp,
+                    "top_p": 0.95
+                }
+            })
+
+            print('get response!')
+            return extract_bot_response(response)
+
+        except Exception as e:
+            print('[ERROR]', e)
+            print("[ERROR] fail to call deepseek-coder, trying again...")
+            max_call -= 1
+            if max_call == 0:
+                send_email(f'deepseek-coder 连续调用失败, model={model}, time={datetime.now()}, error={e}')
+            time.sleep(20)
+
+
+def call_deepseek_client(messages_ori, temp=0.8, model=config["model"]):
+    print(f'[INFO] call codellama, temp = {temp}, model = {model}', end='......')
+
+    dialog_history = "<s>[INST] <<SYS>>\nYou are a helpful, respectful and honest assistant. Always answer as helpfully as possible, while being safe. Your answers should not include any harmful, unethical, racist, sexist, toxic, dangerous, or illegal content. Please ensure that your responses are socially unbiased and positive in nature.\nIf a question does not make any sense, or is not factually coherent, explain why instead of answering something not correct. If you don't know the answer to a question, please don't share false information.\n<</SYS>>\n\n"
+
+    for i, msg in enumerate(messages_ori):
+        if msg['role'] == 'user':
+            dialog_history += f"{msg['content']} [/INST] "
+        else:
+            dialog_history += f"{msg['content']} </s><s>[INST] "
+
+    client = Client("https://deepseek-ai-deepseek-coder-7b-instruct.hf.space/--replicas/4yqv6/")
+
+    max_call = 20
+    while max_call > 0:
+        try:
+            response = client.predict({
+                dialog_history,
+                dialog_history,
+                2048,
+                0.95,
+                temp,
+            })
+            print('get response!')
+            return extract_bot_response(response)
+
+        except Exception as e:
+            print('[ERROR]', e)
+            print("[ERROR] fail to call codellama, trying again...")
+            max_call -= 1
+            if max_call == 0:
+                send_email(f'codellama 连续调用失败, model={model}, time={datetime.now()}, error={e}')
+            time.sleep(30)
+
+
+def call_codellama_client(messages_ori, temp=0.8, model=config["model"]):
+    print(f'[INFO] call codellama, temp = {temp}, model = {model}', end='......')
+
+    max_call = 20
+
+    while True:
+        try:
+            client = InferenceClient(
+                "codellama/CodeLlama-34b-Instruct-hf",
+                token="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",
             )
+            bot_responses = []
+            for message in client.chat_completion(
+                    messages=messages_ori,
+                    max_tokens=2048,
+                    temperature=temp,
+                    top_p=0.95,
+                    stream=True,
+            ):
+                if not message or not message.choices:
+                    print(f'[ERROR] Invalid message structure: {message}')
+                    continue
+                bot_responses.append(message.choices[0].delta.content)
             break
         except Exception as e:
             print('[ERROR]', e)
-            print("[ERROR] fail to call deepseek coder, trying again...")
+            print("[ERROR] fail to call codellama, trying again...")
+            if "429 Client Error: Too Many Requests" in str(e):
+                print("[INFO] Too many requests error. Sleeping for 1 hour...")
+                time.sleep(1800)  # Sleep for 1 hour
+            else:
+                max_call -= 1
+                if max_call == 0:
+                    send_email(f'codellama连续调用失败, model={model}, time={datetime.now()}, error={e}')
+                time.sleep(2)
+    print('get response!')
+    return "".join(bot_responses)
+
+
+def call_codellama(messages_ori, temp=0.8, model=config["model"]):
+    print(f'[INFO] call codellama, temp = {temp}, model = {model}', end='......')
+
+    dialog_history = "<s>[INST] <<SYS>>\nYou are a helpful, respectful and honest assistant. Always answer as helpfully as possible, while being safe. Your answers should not include any harmful, unethical, racist, sexist, toxic, dangerous, or illegal content. Please ensure that your responses are socially unbiased and positive in nature.\nIf a question does not make any sense, or is not factually coherent, explain why instead of answering something not correct. If you don't know the answer to a question, please don't share false information.\n<</SYS>>\n\n"
+
+    for i, msg in enumerate(messages_ori):
+        if msg['role'] == 'user':
+            dialog_history += f"{msg['content']} [/INST] "
+        else:
+            dialog_history += f"{msg['content']} </s><s>[INST] "
+
+    max_call = 100
+    while max_call > 0:
+        try:
+            response = query({
+                "inputs": dialog_history,
+                "parameters": {
+                    "max_new_tokens": 2048,
+                    "temperature": temp,
+                    "top_p": 0.95
+                }
+            })
+            print('get response!')
+            return extract_bot_response(response)
+
+        except Exception as e:
+            print('[ERROR]', e)
+            print("[ERROR] fail to call codellama, trying again...")
             max_call -= 1
             if max_call == 0:
-                send_email(f'DeepSeek Coder连续调用失败, model={model}, time={datetime.now()}, error={e}')
-                raise Exception(f'DeepSeek Coder连续调用失败, error={e}')
-            time.sleep(2)
-
-    return response
+                send_email(f'codellama 连续调用失败, model={model}, time={datetime.now()}, error={e}')
+            time.sleep(10)
 
 
 def redirect_save_path(save_path):

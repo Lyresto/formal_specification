@@ -6,6 +6,7 @@ import threading
 import time
 from typing import Any, Set, List, Dict, Tuple, Optional
 import math
+import threading
 
 
 def get_step_num():
@@ -142,9 +143,13 @@ def randomly_modify_single(var: Any, is_character=False, steps=1):
             var = {}
         elif operation == 0:
             length = len(var)
+            iter_count = 0
             while len(var) == length:
                 seed_data = get_seed_data(var)
+                if iter_count >= 10:
+                    seed_data = get_seed_data(base_data)
                 var.add(randomly_modify_single(seed_data))
+                iter_count += 1
         elif operation == 1:
             lst = list(var)
             update_index = random.randint(0, len(lst) - 1)
@@ -158,11 +163,15 @@ def randomly_modify_single(var: Any, is_character=False, steps=1):
         if empty:
             var = dict()
         elif operation == 0:
+            iter_count = 0
             while True:
                 key_seed_data = get_seed_data(var.keys())
+                if iter_count >= 10:
+                    key_seed_data = get_seed_data(base_data)
                 value_seed_data = get_seed_data(var.values())
                 new_key = randomly_modify_single(key_seed_data)
                 if new_key in var:
+                    iter_count += 1
                     continue
                 var[new_key] = randomly_modify_single(value_seed_data)
                 break
@@ -185,6 +194,7 @@ def randomly_modify_single(var: Any, is_character=False, steps=1):
 
 
 def validate_test_cases_with_timeout(case_in, case_out, timeout=10):
+
     __result = [0]
     __message = [""]
 
@@ -192,6 +202,7 @@ def validate_test_cases_with_timeout(case_in, case_out, timeout=10):
         try:
             preconditions(*case_in)
             postconditions(*case_in, *case_out)
+
             __result[0] = 1
             __message[0] = ""
         except Exception as e:
@@ -206,7 +217,6 @@ def validate_test_cases_with_timeout(case_in, case_out, timeout=10):
     if thread.is_alive():
         raise TimeoutError()
     return __result[0], __message[0], time.time() - start_time
-
 
 def parse_terminal_io(io: str):
     if not isinstance(io, str):

@@ -26,7 +26,7 @@ def parse_tokens(__code: str):
      
 
 def load_jsonl(path) -> list[dict]:
-    with open(path) as f:
+    with open(path, 'r', encoding='utf-8') as f:
         data = []
         for line in f:
             data.append(json.loads(line))
@@ -120,7 +120,7 @@ def parse_func_info_for_humaneval(declaration, language):
     func_sign = ""
     for line in declaration.split('\n')[::-1]:
         line = line.strip()
-        if len(line) == 0 or line.startswith('import ') or line.startswith('from '):
+        if len(line) == 0 or line.startswith('import ') or line.startswith('from ') or line == '"':
             continue
         func_sign = line
         break
@@ -348,6 +348,8 @@ def extract_completed_code(__raw_code, __info):
     if dataset in ['humaneval', 'humaneval-x']:
         func_sign_prefix = __info["func_sign"].split('(')[0].strip() + '('
         filtered_lines = []
+        if __raw_code is None:
+            return __raw_code
         for line in __raw_code.split('\n')[::-1]:
             if remove_space(func_sign_prefix) in remove_space(line) and '`' not in line:
                 break
@@ -445,7 +447,8 @@ def judge_code_v2(__testcases, __specification, __raw_code, __info):
             assert len(matches) <= 1
             if len(matches) == 1:
                 solution_outputs[idx] = parse_terminal_io(matches[0].strip())
-        triphase_testcases = [([tc[0]], [tc[1]], [to_terminal_io(sol_out)]) for tc, sol_out in zip(testcases_str, solution_outputs)]
+        triphase_testcases = [([tc[0]], [tc[1]], [to_terminal_io(sol_out)]) for tc, sol_out in
+                              zip(testcases_str, solution_outputs)]
     else:
         raise NotImplementedError()
     try:

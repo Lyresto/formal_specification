@@ -127,6 +127,7 @@ def get_specifications(idx, prompt, standard_testcase, param_names):
                         refined_description = refine_conversation.messages[-1]["content"]
                     else:
                         refined_description = refine_conversation.chat(requirement_refine_prompt(prompt))
+
                 conversation.chat(natural_language_specification_prompt(prompt, refined_description))
 
             while True:
@@ -156,9 +157,9 @@ def get_specifications(idx, prompt, standard_testcase, param_names):
                     )
                 elif check_result[1] != 1.0:
                     conversation.chat(constraints_modify_prompt_for_improper_testcase(
-                            param_names,
-                            remove_duplicate_testcase(check_result[3])
-                        ),
+                        param_names,
+                        remove_duplicate_testcase(check_result[3])
+                    ),
                         [0, -1]
                     )
             if refine:
@@ -217,7 +218,10 @@ def get_solution(idx, info, specification, generate_testcases):
     while True:
         judge_result, comp_code = judge_code_v2(generate_testcases, specification, code, info)
         log("failed testcases:", judge_result)
-        codes.append((comp_code, 1 - len(judge_result) / len(generate_testcases)))
+        if len(generate_testcases) != 0:
+            codes.append((comp_code, 1 - len(judge_result) / len(generate_testcases)))
+        else:
+            codes.append((comp_code, 1.0))
         count += 1
         if count == max_generation or codes[-1][1] == 1.0:
             break
@@ -237,8 +241,10 @@ def main():
         if item[task_key] in completions:
             log('skip')
             continue
+
         # if item_idx < 29:
         #     continue
+
         # if not item["task_id"].startswith('Java'):
         #     continue
         # if int(item["task_id"].split('/')[1]) >= 3:
@@ -268,7 +274,7 @@ def main():
         log('pass rate =', solution_info["pass_rate"])
 
         with open(result_path, 'a') as result_file:
-            generation_result = {"task_id": info["task_id"]}
+            generation_result = {task_key: info["task_id"]}
             generation_result.update(solution_info)
             result_file.write(f'{json.dumps(generation_result)}\n')
 
