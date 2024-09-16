@@ -90,34 +90,66 @@ def get_output_name():
         raise NotImplementedError()
 
 
+def problem_convert_prompt(problem):
+    if dataset == 'code_contests':
+        example_converted_problem = '''
+You are given q queries in the following form:
+Given three integers l_i, r_i and d_i, find minimum positive integer x_i such that it is divisible by d_i and it does not belong to the segment [l_i, r_i].
+Can you answer all the queries?
+Recall that a number x belongs to segment [l, r] if l \u2264 x \u2264 r.
+Input
+The first line contains one integer q (1 \u2264 q \u2264 500) \u2014 the number of queries.
+Then q lines follow, each containing a query given in the format l_i r_i d_i (1 \u2264 l_i \u2264 r_i \u2264 10^9, 1 \u2264 d_i \u2264 10^9). l_i, r_i and d_i are integers.
+Output
+For each query print two integers: the answer to this query (x_i) and The quotient of x_i divided by d_i.
+Example
+Input
+5
+2 4 2
+5 10 4
+3 10 1
+1 2 3
+4 6 5
+Output
+6 1
+4 1
+1 1
+3 1
+10 2
+'''
+    else:
+        raise NotImplementedError()
+
+
 def testcase_prompt(problem, example_testcase):
     if example_testcase is not None:
         if dataset == 'code_contests':
             example_testcase_prompt = (
                 f'For this problem, an example IO tuple can be represented as: 'f'\n<input>\n{to_terminal_io(example_testcase[0][0],True)}\n</input>\n <output>\n{to_terminal_io(example_testcase[1][0],True)}\n</output>')
-        elif dataset in ['humaneval', 'humaneval-x']:
+        else:
             example_testcase_prompt = ''
-
     else:
         example_testcase_prompt = ''
     if dataset in ['humaneval', 'humaneval-x']:
         example_generated_testcase = """# Example test case:
-    # basic function test cases
-    assert median([-10,4,6,1000,10,20]) == 8.0
-    assert median([1,2,3,4,5]) == 3.0
-    assert median([10, 2, 38, 23, 38, 23, 21]) == 23.0
-    assert median([4, 1, 2, 3]) == 2.5
-    # special situation test cases
-    assert median([1,1,1,1]) == 1.0
-    assert median([1]) == 1.0
-    assert median([-10, -20, -30, -40, -50]) == -30.0
-    # boundary and stress test cases
-    assert median([i for i in range(1, 10001)]) == 5000.5
-    assert median([[1] * 5000 + [2] * 5000]) == 1.5
-    # random test cases
-    assert median([3, 1, 4, 1, 5, 9, 2, 6, 5, 3, 5]) == 4.0
-    assert median([15, 20, 35, 40, 50]) == 35.0
-    
+# basic function test cases
+assert median([-10,4,6,1000,10,20]) == 8.0
+assert median([1,2,3,4,5]) == 3.0
+assert median([10, 2, 38, 23, 38, 23, 21]) == 23.0
+assert median([4, 1, 2, 3]) == 2.5
+
+# special situation test cases
+assert median([1,1,1,1]) == 1.0
+assert median([1]) == 1.0
+assert median([-10, -20, -30, -40, -50]) == -30.0
+
+# boundary and stress test cases
+assert median([i for i in range(1, 10001)]) == 5000.5
+assert median([[1] * 5000 + [2] * 5000]) == 1.5
+
+# random test cases
+assert median([3, 1, 4, 1, 5, 9, 2, 6, 5, 3, 5]) == 4.0
+assert median([15, 20, 35, 40, 50]) == 35.0
 
 """
     elif dataset == 'code_contests':

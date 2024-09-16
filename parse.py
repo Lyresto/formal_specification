@@ -306,7 +306,7 @@ def parse_testcase_v2(__raw_testcases, __entrypoint):
             except (SyntaxError, NameError):
                 pass
     elif dataset == 'code_contests':
-        matches = re.findall('<input>\n(.+?)\n</input>.*\n.*<output>\n(.+?)\n</output>', __raw_testcases, re.DOTALL)
+        matches = re.findall('<input>\n(.+?)\n</input>.*?\n.*?<output>\n(.+?)\n</output>', __raw_testcases, re.DOTALL)
         for match in matches:
             parsed_testcases.append((
                 [parse_terminal_io(match[0])],
@@ -347,17 +347,17 @@ def remove_space(s):
 def extract_completed_code(__raw_code, __info):
     if dataset in ['humaneval', 'humaneval-x']:
         func_sign_prefix = __info["func_sign"].split('(')[0].strip() + '('
-        filtered_lines = []
         if __raw_code is None:
             return __raw_code
-        for line in __raw_code.split('\n')[::-1]:
+        lineno = 0
+        for lineno, line in enumerate(__raw_code.split('\n')):
             if remove_space(func_sign_prefix) in remove_space(line) and '`' not in line:
                 break
-            filtered_lines.append(line)
-        filtered_lines = filtered_lines[::-1]
+        import_lines = list(filter(lambda l: l.startswith('import ') or l.startswith('from '), __raw_code.split('\n')))
+        filtered_lines = __raw_code.split('\n')[lineno + 1:] + ['\n'] + import_lines
         if __info["language"] == 'python':
             code = __info["func_sign"] + '\n' + '\n'.join(filtered_lines)
-            completed_code_with_func_sign = extract_function(code, __info["entrypoint"], True)
+            completed_code_with_func_sign = extract_function(code, __info["entrypoint"])
             return '\n'.join(completed_code_with_func_sign.split('\n')[1:])
         else:
             left_braces = 1
@@ -525,12 +525,27 @@ def extract_function(__content, __func_name, keep_intact=False):
             if indents == 0:
                 end.append(token.start)
                 find_func = False
-    lines = __content.split('\n')[start[len(end) - 1][0] - 1: end[-1][0] - 1]
+    if config['select_type'] == 'last':
+        lines = __content.split('\n')[start[len(end) - 1][0] - 1: end[-1][0] - 1]
+    elif config['select_type'] == 'first':
+        try:
+            lines = __content.split('\n')[start[1][0] - 1: end[1][0] - 1]
+        except IndexError:
+            lines = []
+    else:
+        raise NotImplementedError()
     if keep_intact:
         return '\n'.join(lines)
-    lines = list(filter(lambda l: not l.strip().startswith('print('), lines))
+    # lines = list(filter(lambda l: not l.strip().startswith('print('), lines))
     import_lines = list(filter(lambda l: l.startswith('import ') or l.startswith('from '), __content.split('\n')))
-    return '\n'.join(import_lines + lines)
+    if len(lines) <= 1:
+        space = 0
+    elif lines[1].startswith(' '):
+        space = len(lines[1]) - len(lines[1].lstrip())
+    else:
+        space = (len(lines[1]) - len(lines[1].lstrip())) * 4
+    import_lines = list(set(map(lambda l: ''.join([' '] * space) + l, import_lines)))
+    return '\n'.join([lines[0]] + import_lines + lines[1:])
 
 
 def extract_specification(__content):
