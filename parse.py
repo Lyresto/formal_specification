@@ -561,7 +561,9 @@ def extract_function(__content, __func_name, __param_names=None):
     else:
         other_functions = ''
     import_lines = list(set(map(lambda l: ''.join([' '] * space) + l, import_lines)))
-    return '\n'.join([lines[0]] + import_lines + lines[1:]) + other_functions
+    extract_code = '\n'.join([lines[0]] + import_lines + lines[1:]) + other_functions
+    extract_code = re.sub(r'print\(.*\)', 'pass', extract_code)
+    return extract_code
 
 
 def extract_specification(__content):
@@ -609,7 +611,6 @@ def to_terminal_io(io: list[list[Any]], inline=False):
         join_str = '\n'
     return join_str.join(' '.join(str(elem) for elem in line) for line in io)
 
-
 if __name__ == '__main__':
     code = '''
 ewofh
@@ -628,7 +629,10 @@ def g():
 eoivjo, wef
 ```
 def f(x, yy):
+    print(111)
     return 112 + yy
+
+print(f(1, 2))
 ```
 efc
     '''
