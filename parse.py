@@ -23,7 +23,7 @@ def parse_tokens(__code: str):
         if len(__code.split('\n')) == 1:
             print("[ERROR] syntax error:", e)
         return parse_tokens('\n'.join(__code.split('\n')[:-1]))
-     
+
 
 def load_jsonl(path) -> list[dict]:
     with open(path, 'r', encoding='utf-8') as f:
@@ -349,17 +349,18 @@ def extract_completed_code(__raw_code, __info):
         func_sign_prefix = __info["func_sign"].split('(')[0].strip() + '('
         if __raw_code is None:
             return __raw_code
-        lineno = 0
-        for lineno, line in enumerate(__raw_code.split('\n')):
-            if remove_space(func_sign_prefix) in remove_space(line) and '`' not in line:
-                break
-        import_lines = list(filter(lambda l: l.startswith('import ') or l.startswith('from '), __raw_code.split('\n')))
-        filtered_lines = __raw_code.split('\n')[lineno + 1:] + ['\n'] + import_lines
         if __info["language"] == 'python':
-            code = __info["func_sign"] + '\n' + '\n'.join(filtered_lines)
-            completed_code_with_func_sign = extract_function(code, __info["entrypoint"])
+            __raw_code = __raw_code.strip('\n')
+            if __raw_code.startswith('    ') or __raw_code.startswith('\t'):
+                __raw_code = __info["func_sign"] + '\n' + __raw_code
+            completed_code_with_func_sign = extract_function(__raw_code, __info["entrypoint"], __info["param_names"])
             return '\n'.join(completed_code_with_func_sign.split('\n')[1:])
         else:
+            lineno = 0
+            for lineno, line in enumerate(__raw_code.split('\n')):
+                if remove_space(func_sign_prefix) in remove_space(line) and '`' not in line:
+                    break
+            filtered_lines = __raw_code.split('\n')[lineno + 1:]
             left_braces = 1
             right_braces = 0
             final_lines = []
@@ -457,16 +458,6 @@ def judge_code_v2(__testcases, __specification, __raw_code, __info):
         return [], completed_code
 
 
-def package_solution(__prompt, __code, __entrypoint):
-    warnings.warn("deprecated.")
-    func_in_prompt = extract_function(__prompt, __entrypoint, keep_intact=True)
-    if f'def {__entrypoint}(' not in __code:
-        func_sign = list(filter(lambda l: l.startswith('def '), func_in_prompt.split('\n')))[0]
-        __code = fix_code(f'{func_sign}\n{__code}')
-    func_in_code = extract_function(__code, __entrypoint)
-    return f"{__prompt.replace(func_in_prompt, func_in_code)}\n\ncandidate = {__entrypoint}"
-
-
 def fix_code(__code):
     indent = ["if", "elif", "else", "for", "while", "def", "try", "except"]
     coll = [",", "(", "[", "{", "\\", ":"]
@@ -508,35 +499,56 @@ def fix_code(__code):
     return '\n'.join(codes)
 
 
-def extract_function(__content, __func_name, keep_intact=False):
-    tokens = parse_tokens(__content)
-    start = [(0, 0)]
-    end = [(0, 0)]
-    indents = 0
-    find_func = False
-    for i, token in enumerate(tokens[1:]):
-        if token.type == tokenize.NAME and token.string == __func_name and tokens[i].string == 'def':
-            find_func = True
-            start.append(tokens[i].start)
-        elif find_func and token.type == tokenize.INDENT:
-            indents += 4
-        elif find_func and token.type == tokenize.DEDENT:
-            indents -= 4
-            if indents == 0:
-                end.append(token.start)
-                find_func = False
-    if config['select_type'] == 'last':
-        lines = __content.split('\n')[start[len(end) - 1][0] - 1: end[-1][0] - 1]
-    elif config['select_type'] == 'first':
+def extract_function(__content, __func_name, __param_names=None):
+    if '```' in __content:
         try:
-            lines = __content.split('\n')[start[1][0] - 1: end[1][0] - 1]
+            blocks = re.findall('```.*?\n(.+?)```', __content, flags=re.DOTALL)
         except IndexError:
-            lines = []
+            blocks = re.findall('```.*?\n(.*)', __content, flags=re.DOTALL)
+    else:
+        blocks = [__content]
+    __content = '\n' + '\n'.join(blocks)
+    functions = list(map(lambda f: 'def ' + f, __content.split('\ndef ')[1:]))
+    candidate_functions = list(filter(lambda f: f.startswith('def ' + __func_name + '('), functions))
+    other_functions = list(filter(lambda f: not f.startswith('def ' + __func_name + '('), functions))
+    if len(candidate_functions) == 0:
+        raise ValueError(f'No such function: {__func_name}')
+    if config['select_type'] == 'last':
+        chosen_func = candidate_functions[-1]
+    elif config['select_type'] == 'first':
+        chosen_func = candidate_functions[0]
     else:
         raise NotImplementedError()
-    if keep_intact:
-        return '\n'.join(lines)
-    # lines = list(filter(lambda l: not l.strip().startswith('print('), lines))
+
+    lines = chosen_func.split('\n')
+    if __param_names is not None:
+        code_param_names = parse_func_info_for_humaneval(chosen_func.split('\n')[0], 'python')['param_names']
+        if __param_names != code_param_names and len(code_param_names) == len(__param_names):
+            tokens = parse_tokens(chosen_func)
+            replace_pos = {}
+            for i, token in enumerate(tokens[1:]):
+                if token.type == tokenize.NAME and token.string in code_param_names:
+                    replaced_name = __param_names[code_param_names.index(token.string)]
+                    # print(replaced_line[0:token.start[1]])
+                    if token.start[0] - 1 not in replace_pos:
+                        replace_pos[token.start[0] - 1] = []
+                    replace_pos[token.start[0] - 1].append((token.start[1], token.end[1], replaced_name))
+            for lineno, pos in replace_pos.items():
+                pos = sorted(pos, key=lambda x: x[0])
+                line = lines[lineno]
+                new_line = ''
+                pos_lst = [0]
+                for start, end, _ in pos:
+                    pos_lst.append(start)
+                    pos_lst.append(end)
+                pos_lst.append(len(line))
+                for __i in range(len(pos_lst) - 1):
+                    if __i % 2 == 0:
+                        new_line += line[pos_lst[__i]:pos_lst[__i + 1]]
+                    else:
+                        new_line += pos[__i // 2][2]
+                lines[lineno] = new_line
+
     import_lines = list(filter(lambda l: l.startswith('import ') or l.startswith('from '), __content.split('\n')))
     if len(lines) <= 1:
         space = 0
@@ -544,8 +556,10 @@ def extract_function(__content, __func_name, keep_intact=False):
         space = len(lines[1]) - len(lines[1].lstrip())
     else:
         space = (len(lines[1]) - len(lines[1].lstrip())) * 4
+    if len(other_functions) > 0:
+        other_functions = '\n\n' + '\n'.join(import_lines) + '\n\n' + '\n\n'.join(other_functions)
     import_lines = list(set(map(lambda l: ''.join([' '] * space) + l, import_lines)))
-    return '\n'.join([lines[0]] + import_lines + lines[1:])
+    return '\n'.join([lines[0]] + import_lines + lines[1:]) + other_functions
 
 
 def extract_specification(__content):
@@ -595,6 +609,34 @@ def to_terminal_io(io: list[list[Any]], inline=False):
 
 
 if __name__ == '__main__':
+    code = '''
+ewofh
+```python
+def f(x, yy):
+    import sys
+    a = g(yy)
+    return a * yy + x - yy
+    
+import typing  
+    
+def g():
+    return 1
+```
+
+eoivjo, wef
+```
+def f(x, yy):
+    return 112 + yy
+```
+efc
+    '''
+    dataset = 'humaneval'
+    print(extract_completed_code(code, {
+        'entrypoint': 'f',
+        'param_names': ['x', 'y205'],
+        'func_sign': 'def f(x, y205):',
+        'language': 'python',
+    }))
     # print(to_terminal_io([[1, 2], ["qqq"]]))
     # print(parse_func_info_for_humaneval("fn max_fill(grid:Vec<Vec<i32>>, capacity:i32) -> i32{", "rust"))
     # print(ast.literal_eval("[([[1, 3, 5]], []),([[2, 4, 6]], [[2, 0]])]"))
