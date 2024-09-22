@@ -558,6 +558,8 @@ def extract_function(__content, __func_name, __param_names=None):
         space = (len(lines[1]) - len(lines[1].lstrip())) * 4
     if len(other_functions) > 0:
         other_functions = '\n\n' + '\n'.join(import_lines) + '\n\n' + '\n\n'.join(other_functions)
+    else:
+        other_functions = ''
     import_lines = list(set(map(lambda l: ''.join([' '] * space) + l, import_lines)))
     return '\n'.join([lines[0]] + import_lines + lines[1:]) + other_functions
 
