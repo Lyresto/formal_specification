@@ -39,12 +39,12 @@ def process_humaneval_test(sample, problems, example_test=False):
 
     # Pre-process for different languages
     if language == "python":
-        code_ = []
-        for line in code.split("\n"):
-            if (len(line.strip()) > 0 and line[0] != ' ' and line[0] != '\t'):
-                break
-            code_.append(line)
-        code = "\n".join(code_)
+        # code_ = []
+        # for line in code.split("\n"):
+        #     if (len(line.strip()) > 0 and line[0] != ' ' and line[0] != '\t'):
+        #         break
+        #     code_.append(line)
+        # code = "\n".join(code_)
         test_setup = "\n".join(IMPORT_HELPER["python"]) + "\n"
         test_string = test_setup + prompt + code + "\n" + test + "\n"
     elif language == "cpp":
