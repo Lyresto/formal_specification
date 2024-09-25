@@ -562,7 +562,7 @@ def extract_function(__content, __func_name, __param_names=None):
         other_functions = ''
     import_lines = list(set(map(lambda l: ''.join([' '] * space) + l, import_lines)))
     extract_code = '\n'.join([lines[0]] + import_lines + lines[1:]) + other_functions
-    extract_code = re.sub(r'print\(.*\)', 'pass', extract_code)
+    extract_code = re.sub(r'print\(.*', 'pass', extract_code)
     return extract_code
 
 
@@ -632,7 +632,7 @@ def f(x, yy):
     print(111)
     return 112 + yy
 
-print(f(1, 2))
+print(f(1, 2
 ```
 efc
     '''
